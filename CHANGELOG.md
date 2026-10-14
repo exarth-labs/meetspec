@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-14
+
 First public version.
 
 ### Added
@@ -19,3 +21,6 @@ First public version.
 - `meetings install` sets up `.meetings/` in a project with `AGENTS.md`, agent-neutral playbooks, templates and a glossary, installs the playbooks as Claude Code skills and a Cursor rule, and hides all of it from git through `.git/info/exclude`. It refuses to overwrite files the project tracks.
 - `meetings status` reports requirements against the code and tests that reference them, as `STATUS.md` or JSON (`meetspec/status/v1`).
 - Playbooks for any AI coding agent: `process-meeting`, `implement-req`, `req-check`.
+
+[Unreleased]: https://github.com/exarth-labs/meetspec/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/exarth-labs/meetspec/releases/tag/v0.1.0

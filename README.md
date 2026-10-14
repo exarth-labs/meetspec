@@ -70,6 +70,8 @@ uv tool install git+https://github.com/exarth-labs/meetspec
 
 This adds the `meetings` command. Check it with `meetings --version`.
 
+To install a specific release instead of the latest code, add the tag: `uv tool install git+https://github.com/exarth-labs/meetspec@v0.1.0`. Releases are listed on the [releases page](https://github.com/exarth-labs/meetspec/releases).
+
 ### Update
 
 To get the latest version:
