@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- A rate-limited model download (HTTP 429) now explains how to fix it with `HF_TOKEN`.
+
 ## [0.1.1] - 2026-10-14
 
 ### Changed

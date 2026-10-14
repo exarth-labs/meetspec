@@ -193,8 +193,12 @@ def model_path(name: str) -> str:
     try:
         return huggingface_hub.snapshot_download(repo_id, allow_patterns=MODEL_FILES)
     except Exception as exc:
-        sys.exit(f"Could not download model '{name}' ({type(exc).__name__}: {exc}).\n"
-                 "Check your internet connection and try again; the download resumes where it stopped.")
+        if "429" in str(exc):
+            hint = ("Hugging Face is limiting downloads right now. Wait a few minutes, or set HF_TOKEN "
+                    "to a free Hugging Face access token for higher limits, then try again.")
+        else:
+            hint = "Check your internet connection and try again; the download resumes where it stopped."
+        sys.exit(f"Could not download model '{name}' ({type(exc).__name__}: {exc}).\n{hint}")
 
 
 def gpu_hint(exc: Exception, device: str) -> str:

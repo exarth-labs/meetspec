@@ -278,6 +278,8 @@ See [SECURITY.md](https://github.com/exarth-labs/meetspec/blob/main/SECURITY.md)
 
 **"You are sending unauthenticated requests to the HF Hub".** Harmless. Set `HF_TOKEN` to a free Hugging Face token if downloads are slow.
 
+**`429 Too Many Requests` while downloading the model.** Hugging Face is limiting anonymous downloads. Wait a few minutes, or create a free access token at huggingface.co and set it as `HF_TOKEN`, then run the command again.
+
 **Words or names are wrong.** Add them to `.meetings/glossary.md` and transcribe again; the glossary is used as the prompt automatically and also helps the agent spot mishearings.
 
 **The transcript is in the wrong language or reads like a translation.** The default language is English. Pass `--language auto`, or the right code such as `--language ur`.

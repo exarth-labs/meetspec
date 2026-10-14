@@ -252,3 +252,20 @@ def test_main_reports_transcription_errors_without_traceback(git_repo, tmp_path,
         transcribe.main([str(recording), "--device", "cuda"])
     message = str(exc.value.code)
     assert "Could not transcribe call.m4a" in message and "--device cpu" in message
+
+
+def test_rate_limited_download_suggests_hf_token(monkeypatch):
+    import huggingface_hub
+    from faster_whisper import utils
+
+    def not_cached(*args, **kwargs):
+        raise OSError("not in cache")
+
+    def rate_limited(*args, **kwargs):
+        raise RuntimeError("Client error '429 Too Many Requests' for url 'https://huggingface.co/...'")
+
+    monkeypatch.setattr(utils, "download_model", not_cached)
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", rate_limited)
+    with pytest.raises(SystemExit) as exc:
+        transcribe.model_path("tiny.en")
+    assert "HF_TOKEN" in str(exc.value.code)
