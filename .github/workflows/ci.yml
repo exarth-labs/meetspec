@@ -27,8 +27,9 @@ jobs:
       - name: Cache the test model
         uses: actions/cache@v4
         with:
-          path: ~/.cache/huggingface/hub/models--Systran--faster-whisper-tiny.en
-          key: hf-faster-whisper-tiny.en-v1
+          # the whole hub folder: newer huggingface_hub keeps large files in a shared hub/blobs/
+          path: ~/.cache/huggingface/hub
+          key: hf-hub-tiny.en-${{ runner.os }}-v2
       - name: Run tests (including a real transcription)
         run: uv run pytest -q -rs
         env:

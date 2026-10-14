@@ -85,7 +85,7 @@ Then run `meetings install` again in each project to refresh its playbooks, skil
 
 ### Uninstall
 
-`uv tool uninstall meetspec`. Downloaded models stay in the Hugging Face cache (`~/.cache/huggingface/hub`); delete them there if you want the space back.
+`uv tool uninstall meetspec`. Downloaded models stay in the Hugging Face cache (`~/.cache/huggingface/hub`). Deleting that folder frees the space, but it also removes models other tools downloaded; deleting only a model's own folder does not free much, because the large files are shared in `hub/blobs/`.
 
 To remove it from a project, delete `.meetings/` (after backing up anything you need), the three folders in `.claude/skills/` (`process-meeting`, `implement-req`, `req-check`) and `.cursor/rules/meetings.mdc`, then the `# meetspec (local only)` lines from `.git/info/exclude`.
 
