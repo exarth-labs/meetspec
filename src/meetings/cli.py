@@ -11,7 +11,7 @@ Transcribe client calls locally and track requirements.
 
 commands:
   install [project]     set up .meetings/ and the Claude skills in a project (run again to update)
-  transcribe <input>    transcribe a Zoom recording folder or audio/video file
+  transcribe <input>    transcribe a meeting recording (any audio/video file or recording folder)
   status                check requirements against code, write .meetings/STATUS.md
 
 Run `meetings <command> --help` for a command's options.

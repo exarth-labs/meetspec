@@ -1,13 +1,18 @@
 """
-Local meeting transcription for Zoom recordings.
+Local meeting transcription for any recording: Zoom, Google Meet, Microsoft Teams, Webex,
+Riverside, a phone voice memo, or any other audio/video file.
 
 Everything runs on your own machine: audio never leaves it.
 
 Two input modes:
-  1. A Zoom local-recording folder that contains an "Audio Record" subfolder
-     (Zoom setting: record a separate audio file for each participant).
-     Each file is one speaker, so speakers are labelled by name with no guessing.
-  2. A single audio/video file. Speakers are not separated; all lines get one label.
+  1. Per speaker: one audio file per person, so lines are labelled by name with no guessing.
+     Used automatically for a Zoom folder with an "Audio Record" subfolder, and with
+     --per-speaker for any folder of per-person tracks (Riverside, Zencastr, Craig for Discord, ...).
+  2. Single: one audio/video file, or the best file in a folder. Speakers are not separated;
+     all lines get one label.
+
+The meeting date is read from the file or folder name when it has one (Zoom, Meet and Teams
+names do), otherwise from the file's modified date.
 
 Output (in --out; default .meetings/transcripts in the project, or ./transcripts outside one):
   <name>.md    readable transcript with timestamps and speakers
@@ -15,7 +20,9 @@ Output (in --out; default .meetings/transcripts in the project, or ./transcripts
 
 Examples:
   meetings transcribe "~/Documents/Zoom/2026-10-14 15.00.00 Acme kickoff"
-  meetings transcribe meeting.m4a --model distil-large-v3 --compute-type int8
+  meetings transcribe "~/Downloads/Acme sync (2026-10-14 15:00 GMT+5).mp4"
+  meetings transcribe ~/Downloads/riverside-tracks --per-speaker
+  meetings transcribe meeting.m4a --model distil-large-v3
   meetings transcribe <folder> --prompt "Acme, Next.js, Stripe, HIPAA"
   meetings transcribe <folder> --speakers speakers.json
 """
@@ -54,10 +61,12 @@ def log(message: str) -> None:
 # ---------------------------------------------------------------- input discovery
 
 def speaker_from_filename(path: Path) -> str:
-    """Zoom per-participant files look like 'audioIkramKhan21234567.m4a'.
-    Strip the 'audio' prefix and trailing digits, then split CamelCase."""
+    """Turn a per-speaker track's file name into a name.
+    Zoom: 'audioIkramKhan21234567.m4a'; Craig: '1-ikram.flac'; others: 'Ikram Khan.wav'.
+    Strip the 'audio' prefix, leading track numbers and trailing digits, then split CamelCase."""
     stem = path.stem
     name = re.sub(r"^audio", "", stem, flags=re.IGNORECASE)
+    name = re.sub(r"^\d+[-_ ]+", "", name)
     name = re.sub(r"\d+$", "", name)
     name = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
     name = name.replace("_", " ").strip()
@@ -68,10 +77,10 @@ def is_audio(path: Path) -> bool:
     return path.is_file() and path.suffix.lower() in AUDIO_EXTS and not path.name.startswith(".")
 
 
-def find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
+def find_inputs(input_path: Path, per_speaker: bool = False) -> tuple[list[tuple[Path, str | None]], str]:
     """Return ([(file, speaker_or_None)], mode)."""
     try:
-        return _find_inputs(input_path)
+        return _find_inputs(input_path, per_speaker)
     except PermissionError:
         hint = ""
         if sys.platform == "darwin":
@@ -81,8 +90,10 @@ def find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
         sys.exit(f"Permission denied reading {input_path}{hint}")
 
 
-def _find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
+def _find_inputs(input_path: Path, per_speaker: bool) -> tuple[list[tuple[Path, str | None]], str]:
     if input_path.is_file():
+        if per_speaker:
+            sys.exit("--per-speaker needs a folder with one audio file per person.")
         if not is_audio(input_path):
             sys.exit(f"Not a supported audio/video file: {input_path}")
         return [(input_path, None)], "single"
@@ -90,11 +101,17 @@ def _find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
     if not input_path.is_dir():
         sys.exit(f"Path not found: {input_path}")
 
-    per_speaker_dir = next(
+    if per_speaker:
+        files = sorted(f for f in input_path.iterdir() if is_audio(f))
+        if len(files) < 2:
+            sys.exit(f"--per-speaker needs at least two audio files in: {input_path}")
+        return [(f, speaker_from_filename(f)) for f in files], "per-speaker"
+
+    zoom_tracks = next(
         (d for d in input_path.iterdir() if d.is_dir() and d.name.lower() == "audio record"), None
     )
-    if per_speaker_dir:
-        files = sorted(f for f in per_speaker_dir.iterdir() if is_audio(f))
+    if zoom_tracks:
+        files = sorted(f for f in zoom_tracks.iterdir() if is_audio(f))
         if files:
             return [(f, speaker_from_filename(f)) for f in files], "per-speaker"
 
@@ -203,14 +220,31 @@ def slugify(text: str) -> str:
     return slug[:80] or "meeting"
 
 
+_TIME = r"\d{1,2}[.:]\d{2}(?:[.:]\d{2})?(?:\s*[AaPp][Mm])?"
+_ZONE = r"(?:\s*(?:GMT|UTC)(?:[+-]\d{1,2}(?::?\d{2})?)?)?"
+DATE_PATTERNS = [
+    # Zoom '2026-10-14 15.00.00 Acme', Meet 'Acme (2026-10-14 15:00 GMT+5)' or '(2026-10-14 at 15:00 GMT-7)'
+    re.compile(rf"(?P<y>\d{{4}})-(?P<m>\d{{2}})-(?P<d>\d{{2}})(?:(?:[ _T]|\s+at\s+){_TIME})?{_ZONE}"),
+    # Teams 'Acme-20261014_150000-Meeting Recording', phones 'REC_20261014_150000'
+    re.compile(r"(?<!\d)(?P<y>20\d{2})(?P<m>[01]\d)(?P<d>[0-3]\d)(?:[_T-]?\d{4,6})?(?!\d)"),
+]
+NOISE = re.compile(r"\b(?:meeting recording|recording|audio only|audio_only)\b|\(\s*\)", re.IGNORECASE)
+
+
 def meeting_date_and_slug(input_path: Path) -> tuple[str, str]:
-    """Zoom folders are named like '2026-10-14 15.00.00 Acme kickoff'. Use that date and the rest
-    as the slug; otherwise fall back to the file's modified date."""
+    """Find the meeting date in the file or folder name (Zoom, Google Meet, Teams and phone
+    recordings all put it there) and use the rest of the name as the slug.
+    Without a date in the name, use the file's modified date."""
     source_name = input_path.name if input_path.is_dir() else input_path.stem
-    m = re.match(r"(\d{4}-\d{2}-\d{2})(?:[ _T]\d{2}\.\d{2}\.\d{2})?[ _-]*(.*)$", source_name)
-    if m:
-        return m.group(1), slugify(m.group(2) or source_name)
-    return f"{datetime.fromtimestamp(input_path.stat().st_mtime):%Y-%m-%d}", slugify(source_name)
+    for pattern in DATE_PATTERNS:
+        for m in pattern.finditer(source_name):
+            try:
+                found = datetime(int(m["y"]), int(m["m"]), int(m["d"]))
+            except ValueError:
+                continue
+            rest = NOISE.sub(" ", source_name[:m.start()] + " " + source_name[m.end():])
+            return f"{found:%Y-%m-%d}", slugify(rest)
+    return f"{datetime.fromtimestamp(input_path.stat().st_mtime):%Y-%m-%d}", slugify(NOISE.sub(" ", source_name))
 
 
 def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict) -> tuple[Path, Path]:
@@ -248,8 +282,11 @@ def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict)
 # ---------------------------------------------------------------- main
 
 def main(argv: list[str] | None = None, prog: str | None = None) -> None:
-    parser = argparse.ArgumentParser(prog=prog, description="Transcribe a Zoom meeting locally with faster-whisper.")
-    parser.add_argument("input", type=Path, help="Zoom recording folder or a single audio/video file")
+    parser = argparse.ArgumentParser(prog=prog, description="Transcribe a meeting recording locally with faster-whisper.")
+    parser.add_argument("input", type=Path,
+                        help="an audio/video file, or a folder with the recording (Zoom, Meet, Teams, ...)")
+    parser.add_argument("--per-speaker", action="store_true",
+                        help="the folder holds one audio file per person; label lines with names from the file names")
     parser.add_argument("--out", type=Path, default=None,
                         help="output folder (default: .meetings/transcripts in a project, else ./transcripts)")
     parser.add_argument("--model", default="large-v3",
@@ -262,7 +299,7 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
                         help="names and technical words used in the meeting; improves spelling of them")
     parser.add_argument("--speakers", type=Path, default=None,
                         help='JSON map from detected name to label, e.g. {"John Smith": "Client - John"}')
-    parser.add_argument("--label", default="Speaker", help="speaker label in single-file mode")
+    parser.add_argument("--label", default="Speaker", help="speaker label when speakers are not separated")
     parser.add_argument("--no-vad", action="store_true", help="disable silence filtering")
     parser.add_argument("--json", action="store_true",
                         help="print the result as JSON on stdout (progress still goes to stderr)")
@@ -271,7 +308,7 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
     out_dir = args.out.expanduser() if args.out else (base / "transcripts" if base else Path("transcripts"))
 
     input_path = args.input.expanduser().resolve()
-    inputs, mode = find_inputs(input_path)
+    inputs, mode = find_inputs(input_path, args.per_speaker)
     speaker_map = load_speaker_map(args.speakers.expanduser() if args.speakers else None)
     language = None if args.language == "auto" else args.language
 

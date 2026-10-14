@@ -88,6 +88,6 @@ The `meetings` command may be installed (`uv tool install git+https://github.com
 | --- | --- |
 | `meetings status --json` | Requirements, their code/test references and problems, as JSON. Read-only. |
 | `meetings status` | Same check; writes `STATUS.md`. Exit code 1 with `--check` when there are errors. |
-| `meetings transcribe <zoom folder or file> --json` | Transcribe locally; prints the output paths as JSON. Slow; only run it when the user asks. |
+| `meetings transcribe <recording file or folder> --json` | Transcribe locally; prints the output paths as JSON. Slow; only run it when the user asks. |
 
 If `meetings` is not installed, do the same work by reading the files directly.

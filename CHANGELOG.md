@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `meetings status --json` and `meetings transcribe --json` for tools and agents; progress goes to stderr, results to stdout.
 - Transcript JSON carries `"schema": "ai-transcripter/transcript/v1"`.
 - Transcripts note when speakers were not separated.
+- Not just Zoom: meeting dates are read from Google Meet and Microsoft Teams recording names too, and `--per-speaker` transcribes any folder of per-person tracks (Riverside, Zencastr, Craig for Discord, …).
 
 ### Fixed
 

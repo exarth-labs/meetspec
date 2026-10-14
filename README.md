@@ -7,10 +7,10 @@
 
 Turn client calls into requirements you can build against, without the audio ever leaving your machine.
 
-`ai-transcripter` transcribes Zoom recordings locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
+`ai-transcripter` transcribes meeting recordings (Zoom, Google Meet, Microsoft Teams, Webex, or any audio/video file) locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
 
 ```text
-Zoom call ──► meetings transcribe ──► /process-meeting ──► you review, client confirms
+Recording ──► meetings transcribe ──► /process-meeting ──► you review, client confirms
                 (local, offline)        notes, REQ files,          │
                                         confirmation email         ▼
                     meetings status ◄── /implement-req REQ-012 ◄── approved requirement
@@ -26,7 +26,7 @@ Zoom call ──► meetings transcribe ──► /process-meeting ──► you
 - [AI agents](#ai-agents)
 - [Requirement files](#requirement-files)
 - [Choosing a model](#choosing-a-model)
-- [Zoom setup](#zoom-setup)
+- [Recording tips by platform](#recording-tips-by-platform)
 - [Privacy](#privacy)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -35,7 +35,8 @@ Zoom call ──► meetings transcribe ──► /process-meeting ──► you
 ## Features
 
 - **Local transcription.** Audio is processed on your computer. After the one-time model download, nothing goes over the network.
-- **Speakers by name.** With Zoom's per-participant audio, each line is labelled with who said it. No guessing.
+- **Any meeting platform.** Zoom, Google Meet, Teams, Webex, Riverside, Discord, a phone voice memo: if it is an audio or video file, it works. Meeting dates are read from Zoom, Meet and Teams file names.
+- **Speakers by name.** With per-person audio tracks (Zoom, Riverside, Zencastr, Craig for Discord, …), each line is labelled with who said it. No guessing.
 - **Progress you can see.** Download progress in MB and transcription progress against the length of the call.
 - **Requirements as files.** Each requirement is a Markdown file with a status, a client confirmation flag and acceptance criteria.
 - **Code linked to requirements.** `REQ-012` in a comment or test name ties code to a requirement; `meetings status` reports what is missing.
@@ -89,7 +90,7 @@ Then run `meetings install` again in each project to refresh its playbooks, skil
 cd ~/code/client-project
 meetings install                      # once per project
 
-meetings transcribe "~/Documents/Zoom/2026-10-13 18.19.15 Kickoff" \
+meetings transcribe "~/Downloads/Kickoff (2026-10-13 18:19 GMT+5).mp4" \
   --prompt "Acme, Stripe, HIPAA"      # names and words used in the call
 ```
 
@@ -125,20 +126,21 @@ All of it is added to `.git/info/exclude`, so git ignores it on this machine onl
 
 ### `meetings transcribe <input>`
 
-Transcribes a Zoom recording folder or a single audio/video file (`.m4a`, `.mp3`, `.wav`, `.mp4`, `.mov`, …).
+Transcribes any audio or video file (`.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.webm`, `.mp4`, `.mkv`, `.mov`, …), or a folder containing the recording.
 
-- A Zoom folder with an `Audio Record` subfolder is transcribed per speaker, with names from the file names.
-- Otherwise the best single file is used (the audio-only file if there is one), and every line gets one label.
+- **One file**, or a folder with one recording in it: every line gets one label (the audio-only file is preferred when a folder has both audio and video).
+- **Per-person tracks**: lines are labelled with each person's name, taken from the file names. A Zoom folder with an `Audio Record` subfolder is detected automatically; for any other folder of per-person tracks, add `--per-speaker`.
 
-Output goes to `.meetings/transcripts/` inside a project, or `./transcripts/` elsewhere: a readable `.md` and a `.json` for the skills. The file name uses the meeting date from the Zoom folder name.
+Output goes to `.meetings/transcripts/` inside a project, or `./transcripts/` elsewhere: a readable `.md` and a `.json` for agents and tools. The file name starts with the meeting date, read from the recording's name when it has one (Zoom, Google Meet and Teams names do) and otherwise from the file's modified date.
 
 | Option | Default | |
 | --- | --- | --- |
+| `--per-speaker` | | The folder holds one audio file per person |
 | `--model` | `large-v3` | See [Choosing a model](#choosing-a-model) |
 | `--language` | `en` | Language code, or `auto` to detect |
 | `--prompt` | | Names and terms used in the call; improves their spelling |
 | `--speakers` | | JSON file mapping detected names to labels, e.g. `{"John Smith": "Client - John"}` |
-| `--label` | `Speaker` | Label for single-file recordings |
+| `--label` | `Speaker` | Label when speakers are not separated |
 | `--device` | `auto` | `cpu` or `cuda` |
 | `--compute-type` | `int8` on CPU | e.g. `float16` on GPU |
 | `--out` | | Output folder |
@@ -232,11 +234,21 @@ Models download once on first use (to `~/.cache/huggingface/hub`) and are shared
 
 On a laptop without an NVIDIA GPU, start with `--model distil-large-v3` for English calls or `--model turbo` otherwise, and compare against `large-v3` on one real call.
 
-## Zoom setup
+## Recording tips by platform
 
-Settings → Recording → **Local recording** → tick **Record a separate audio file for each participant**.
+Any audio or video file works. Per-person tracks give you speaker names; a single mixed recording gives you one label for everyone, and the agent infers who said what from context.
 
-Zoom then writes an `Audio Record` folder with one file per person, and the transcript labels every line with the speaker's name. Without it you still get a transcript; speakers are just not separated.
+| Platform | How to get the recording | Speakers by name |
+| --- | --- | --- |
+| **Zoom** | Settings → Recording → **Local recording** → tick **Record a separate audio file for each participant**. Pass the meeting's folder (usually `~/Documents/Zoom/<date> <topic>`). | Yes, automatically |
+| **Google Meet** | Recordings are saved to the organiser's Google Drive (`Meet Recordings`). Download the `.mp4` and pass it. | No |
+| **Microsoft Teams** | Open the recording from the meeting chat or OneDrive/SharePoint, download the `.mp4` and pass it. | No |
+| **Webex, GoTo, others** | Download the cloud or local recording and pass the file. | No |
+| **Riverside, Zencastr, SquadCast** | Download the separate per-participant audio tracks into one folder and pass it with `--per-speaker`. | Yes |
+| **Discord** (Craig bot) | Download the multi-track ZIP, unzip it, and pass the folder with `--per-speaker`. | Yes |
+| **In person / phone** | Any voice-memo app. Pass the `.m4a` / `.mp3`. | No |
+
+If the track names are not people's names, map them with `--speakers names.json`, e.g. `{"1-jdoe": "Client - John"}`.
 
 ## Privacy
 
@@ -248,7 +260,7 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Troubleshooting
 
-**`Operation not permitted` on macOS.** macOS blocks terminal apps from `Documents`, `Desktop` and `Downloads` until you allow it: System Settings → Privacy & Security → Files and Folders → your terminal app (Terminal, iTerm, VS Code) → enable the folder. Quit and reopen the app. Or copy the recording somewhere else.
+**`Operation not permitted` on macOS.** macOS blocks terminal apps from `Documents`, `Desktop` and `Downloads` (where Zoom and browsers save recordings) until you allow it: System Settings → Privacy & Security → Files and Folders → your terminal app (Terminal, iTerm, VS Code) → enable the folder. Quit and reopen the app. Or copy the recording somewhere else.
 
 **Transcription is slow.** Use a smaller model (see above). On CPU the default `int8` compute type is already the fastest.
 

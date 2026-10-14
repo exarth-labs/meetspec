@@ -7,7 +7,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Exarth Labs" }]
 requires-python = ">=3.10"
-keywords = ["transcription", "whisper", "zoom", "requirements", "claude-code", "meetings"]
+keywords = ["transcription", "whisper", "meetings", "zoom", "google-meet", "teams", "requirements", "ai-agents", "claude-code"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

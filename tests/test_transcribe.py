@@ -22,6 +22,8 @@ from meetings.transcribe import (
         ("audioJohnSmith11.m4a", "John Smith"),
         ("audio_jane_doe42.m4a", "jane doe"),
         ("12345.m4a", "12345"),
+        ("1-ikram.flac", "ikram"),
+        ("Jane Doe.wav", "Jane Doe"),
     ],
 )
 def test_speaker_from_filename(filename, expected):
@@ -29,9 +31,31 @@ def test_speaker_from_filename(filename, expected):
 
 
 def test_meeting_date_comes_from_zoom_folder_name(tmp_path):
-    folder = tmp_path / "2026-10-13 18.19.15 Acme Kickoff"
+    folder = tmp_path / "2026-10-13 18.19.15 Ran's Personal Meeting Room"
     folder.mkdir()
-    assert meeting_date_and_slug(folder) == ("2026-10-13", "acme-kickoff")
+    assert meeting_date_and_slug(folder) == ("2026-10-13", "ran-s-personal-meeting-room")
+
+
+@pytest.mark.parametrize(
+    ("filename", "slug"),
+    [
+        ("Acme sync (2026-10-13 18:19 GMT+5).mp4", "acme-sync"),  # Google Meet
+        ("abc-defg-hij (2026-10-13 at 6:19 PM GMT-7).mp4", "abc-defg-hij"),  # Google Meet, no title
+        ("Weekly sync-20261013_181915-Meeting Recording.mp4", "weekly-sync"),  # Microsoft Teams
+        ("REC_20261013_181915.m4a", "rec"),  # phone recorder
+    ],
+)
+def test_meeting_date_from_other_platforms(tmp_path, filename, slug):
+    path = tmp_path / filename
+    path.write_bytes(b"x")
+    assert meeting_date_and_slug(path) == ("2026-10-13", slug)
+
+
+def test_invalid_date_in_name_is_ignored(tmp_path):
+    path = tmp_path / "notes 2026-13-45.m4a"
+    path.write_bytes(b"x")
+    date, _ = meeting_date_and_slug(path)
+    assert date != "2026-13-45"
 
 
 def test_meeting_date_falls_back_to_file_date(tmp_path):
@@ -69,6 +93,24 @@ def test_find_inputs_uses_per_speaker_audio(tmp_path):
     inputs, mode = find_inputs(tmp_path)
     assert mode == "per-speaker"
     assert sorted(speaker for _, speaker in inputs) == ["Jane Doe", "John Smith"]
+
+
+def test_find_inputs_per_speaker_folder(tmp_path):
+    (tmp_path / "1-alice.flac").write_bytes(b"x")
+    (tmp_path / "2-bob.flac").write_bytes(b"x")
+    (tmp_path / "notes.txt").write_text("ignored")
+
+    inputs, mode = find_inputs(tmp_path, per_speaker=True)
+    assert mode == "per-speaker"
+    assert [speaker for _, speaker in inputs] == ["alice", "bob"]
+
+
+def test_per_speaker_needs_a_folder_of_tracks(tmp_path):
+    (tmp_path / "only.m4a").write_bytes(b"x")
+    with pytest.raises(SystemExit):
+        find_inputs(tmp_path, per_speaker=True)
+    with pytest.raises(SystemExit):
+        find_inputs(tmp_path / "only.m4a", per_speaker=True)
 
 
 def test_find_inputs_prefers_audio_only_file(tmp_path):
