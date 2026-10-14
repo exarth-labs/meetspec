@@ -58,7 +58,8 @@ Each task has a step-by-step playbook. Read it fully before starting.
 
 - `start` / `end` are seconds from the start of the recording. Cite them as `[hh:mm:ss]`.
 - `mode` is `per-speaker` when each person had their own audio file (speaker names are reliable) or `single` (one label for everyone; infer speakers from context and say so).
-- The date in the file name is the meeting date.
+- `language` is the language given or detected.
+- The date in the file name is the meeting date. A `-2`, `-3` suffix means another recording from the same day had the same name.
 
 ## Requirement format
 

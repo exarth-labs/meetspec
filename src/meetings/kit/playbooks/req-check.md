@@ -5,7 +5,7 @@ description: Check whether the code actually does what the requirements say. Use
 
 # Requirements vs code check
 
-`req_status.py` only knows whether code *mentions* a REQ ID. This skill checks whether the code *does* what the requirement says.
+`meetings status` only knows whether code *mentions* a REQ ID. This playbook checks whether the code *does* what the requirement says.
 
 Requirements live in `.meetings/requirements/` at the project root. `.meetings/` is kept out of git on purpose: never `git add` anything under it.
 

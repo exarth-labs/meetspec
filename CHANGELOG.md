@@ -4,32 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-### Changed
-
-- Renamed to **meetspec** (was ai-transcripter). Install with `uv tool install git+https://github.com/exarth-labs/meetspec`; if you installed the old name, run `uv tool uninstall ai-transcripter` first. The command is still `meetings`.
+First public version.
 
 ### Added
 
-- Works with any AI coding agent: `meetings install` now adds `.meetings/AGENTS.md`, agent-neutral playbooks in `.meetings/playbooks/`, and a Cursor rule, alongside the Claude Code skills.
-- `meetings status --json` and `meetings transcribe --json` for tools and agents; progress goes to stderr, results to stdout.
-- Transcript JSON carries `"schema": "meetspec/transcript/v1"`.
-- Transcripts note when speakers were not separated.
-- Not just Zoom: meeting dates are read from Google Meet and Microsoft Teams recording names too, and `--per-speaker` transcribes any folder of per-person tracks (Riverside, Zencastr, Craig for Discord, …).
-
-### Fixed
-
-- Transcription crashed with `av` 19 (`unexpected keyword argument 'metadata_errors'`); `av` is now pinned below 19.
-- Python 3.14 is supported.
-
-## [0.1.0] - 2026-10-14
-
-### Added
-
-- `meetings` command, installable with `uv tool install`, on macOS, Windows and Linux.
-- `meetings install` sets up `.meetings/` and the Claude Code skills in a project and keeps them out of git through `.git/info/exclude`.
-- `meetings transcribe` transcribes Zoom recordings locally with faster-whisper, per speaker when Zoom records separate audio files, with download and transcription progress.
-- `meetings status` reports requirements against the code that references them.
-- Claude Code skills: `/process-meeting`, `/implement-req`, `/req-check`.
-
-[Unreleased]: https://github.com/exarth-labs/meetspec/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/exarth-labs/meetspec/releases/tag/v0.1.0
+- `meetings` command, installable with `uv tool install`, on macOS, Windows and Linux (Python 3.10+).
+- `meetings transcribe` transcribes any meeting recording locally with faster-whisper: Zoom, Google Meet, Microsoft Teams, Webex, phone recordings or any audio/video file.
+  - Per-speaker transcripts from Zoom's separate audio files (detected automatically) or any folder of per-person tracks with `--per-speaker`.
+  - Meeting date read from Zoom, Meet, Teams and phone recorder file names.
+  - Terms in `.meetings/glossary.md` used as the prompt automatically.
+  - Download progress in MB and transcription progress against the length of the call; hidden when output is not a terminal.
+  - Readable `.md` and versioned `.json` (`meetspec/transcript/v1`) output, and a `--json` result for tools.
+  - Clear messages instead of tracebacks for permission problems (including macOS folder access), failed downloads, GPU problems and Ctrl+C.
+- `meetings install` sets up `.meetings/` in a project with `AGENTS.md`, agent-neutral playbooks, templates and a glossary, installs the playbooks as Claude Code skills and a Cursor rule, and hides all of it from git through `.git/info/exclude`. It refuses to overwrite files the project tracks.
+- `meetings status` reports requirements against the code and tests that reference them, as `STATUS.md` or JSON (`meetspec/status/v1`).
+- Playbooks for any AI coding agent: `process-meeting`, `implement-req`, `req-check`.

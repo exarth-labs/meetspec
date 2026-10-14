@@ -16,7 +16,7 @@ This folder holds client meeting transcripts, notes and requirements for this pr
 ## The flow
 
 1. **Record the call.** Ask for consent at the start ("Is it OK if we record this so we don't miss anything?").
-2. **Transcribe locally.** `meetings transcribe "<recording file or folder>" --prompt "<names and product words>"` (Zoom, Meet, Teams or any audio/video file)
+2. **Transcribe locally.** `meetings transcribe "<recording file or folder>"` (Zoom, Meet, Teams or any audio/video file). Add names and product words to `glossary.md` first; they are used to spell them right.
 3. **Process.** Ask your AI agent. In Claude Code: `/process-meeting .meetings/transcripts/<file>.json`; in other agents: "Follow .meetings/AGENTS.md to process .meetings/transcripts/<file>.json". It writes the meeting note, proposes requirement changes and drafts a confirmation email.
 4. **Review** the new files against the recording wherever something looks wrong.
 5. **Confirm with the client.** Send the drafted email. When the client replies, set `client_confirmed: yes`, `confirmed_on:` and `status: approved` on those requirements.
@@ -50,6 +50,6 @@ def test_req_012_exports_only_selected_month(): ...
 
 ## Rules
 
-- Transcripts and recordings stay on this machine. Never upload them to online tools.
+- Transcription runs on this machine. When an AI agent processes a transcript, it reads it like any other file and sends it to its provider under your account's terms, so only use agents you are allowed to share client conversations with, and never paste transcripts into tools you have not approved.
 - Machine transcripts get names and numbers wrong. Nothing becomes a requirement without a human review and client confirmation.
 - Recording laws differ by country and state; some require everyone's consent. Always ask.

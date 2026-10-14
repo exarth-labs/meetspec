@@ -39,7 +39,7 @@ tests/
 
 - Keep transcription local. No feature may send audio or transcripts over the network.
 - Keep `meetings status` dependency-free beyond the standard library.
-- Add or update tests for behaviour changes. Tests must not download models; keep model work behind functions that tests do not call.
+- Add or update tests for behaviour changes. Ordinary tests must not download models; the one real transcription lives in `tests/test_e2e.py` and runs only with `RUN_E2E=1` (CI sets it).
 - Playbooks in `src/meetings/kit/playbooks/` are instructions for AI agents. Keep them agent-neutral, short, specific and testable, and never let them approve requirements or commit `.meetings/` files. Their frontmatter (`name`, `description`) is what Claude Code uses to pick the skill.
 - The JSON formats (`meetspec/transcript/v1`, `meetspec/status/v1`) are a public interface. Adding fields is fine; renaming or removing one needs a new version.
 - Never put real client names, recordings or transcripts in issues, tests or examples.

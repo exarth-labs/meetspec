@@ -39,6 +39,8 @@ SKIP_DIRS = {".git", "node_modules", "vendor", "dist", "build", ".next", "out", 
              "__pycache__", ".venv", "venv", "transcripts", ".claude", ".meetings"}
 SKIP_SUFFIXES = (".md", ".markdown")  # docs are not code; a README mentioning an ID is not an implementation
 TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec|e2e)(/|$)|\.(test|spec)\.|_test\.|(^|/)test_", re.IGNORECASE)
+TEST_CLASS = re.compile(r"[a-z0-9]Tests?\.\w+$")  # Java, Kotlin, C#, Swift: InvoiceExportTest.java
+CONFIRMED = {"yes", "y", "true"}
 MAX_FILE_BYTES = 2_000_000
 
 
@@ -81,7 +83,7 @@ def load_requirements(req_dir: Path) -> tuple[dict[str, Requirement], list[Findi
     if not req_dir.is_dir():
         return reqs, findings
     for path in sorted(req_dir.glob("REQ-*.md")):
-        meta = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+        meta = parse_frontmatter(path.read_text(encoding="utf-8-sig", errors="replace"))  # -sig: Windows BOM
         rid = meta.get("id", "")
         name = path.name
         if not REQ_ID.fullmatch(rid):
@@ -100,7 +102,7 @@ def load_requirements(req_dir: Path) -> tuple[dict[str, Requirement], list[Findi
             id=rid,
             title=meta.get("title", "(no title)"),
             status=status,
-            client_confirmed=meta.get("client_confirmed", "no").lower(),
+            client_confirmed="yes" if meta.get("client_confirmed", "").lower() in CONFIRMED else "no",
             path=path,
         )
     return reqs, findings
@@ -137,7 +139,7 @@ def scan_code(root: Path, skip: Path) -> dict[str, list[tuple[str, bool]]]:
         if b"\0" in raw[:4096]:
             continue  # binary
         rel = f.relative_to(root).as_posix()
-        is_test = bool(TEST_PATH.search(rel))
+        is_test = bool(TEST_PATH.search(rel) or TEST_CLASS.search(rel))
         for lineno, line in enumerate(raw.decode("utf-8", "replace").splitlines(), 1):
             for rid in {f"REQ-{n}" for n in CODE_REF.findall(line)}:
                 refs.setdefault(rid, []).append((f"{rel}:{lineno}", is_test))

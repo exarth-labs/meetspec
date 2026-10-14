@@ -10,11 +10,11 @@ Turn client calls into requirements you can build against, without the audio eve
 `meetspec` transcribes meeting recordings (Zoom, Google Meet, Microsoft Teams, Webex, or any audio/video file) locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
 
 ```text
-Recording ──► meetings transcribe ──► /process-meeting ──► you review, client confirms
-                (local, offline)        notes, REQ files,          │
-                                        confirmation email         ▼
-                    meetings status ◄── /implement-req REQ-012 ◄── approved requirement
-                    /req-check          code + tests linked by ID
+Recording ──► meetings transcribe ──► process-meeting ──► you review, client confirms
+                (local, offline)        notes, REQ files,         │
+                                        confirmation email        ▼
+                    meetings status ◄── implement-req REQ-012 ◄── approved requirement
+                    req-check           code + tests linked by ID
 ```
 
 ## Contents
@@ -34,7 +34,7 @@ Recording ──► meetings transcribe ──► /process-meeting ──► you
 
 ## Features
 
-- **Local transcription.** Audio is processed on your computer. After the one-time model download, nothing goes over the network.
+- **Local transcription.** Audio is processed on your computer. After the one-time model download, transcription needs no network.
 - **Any meeting platform.** Zoom, Google Meet, Teams, Webex, Riverside, Discord, a phone voice memo: if it is an audio or video file, it works. Meeting dates are read from Zoom, Meet and Teams file names.
 - **Speakers by name.** With per-person audio tracks (Zoom, Riverside, Zencastr, Craig for Discord, …), each line is labelled with who said it. No guessing.
 - **Progress you can see.** Download progress in MB and transcription progress against the length of the call.
@@ -84,14 +84,20 @@ Then run `meetings install` again in each project to refresh its playbooks, skil
 
 `uv tool uninstall meetspec`. Downloaded models stay in the Hugging Face cache (`~/.cache/huggingface/hub`); delete them there if you want the space back.
 
+To remove it from a project, delete `.meetings/` (after backing up anything you need), the three folders in `.claude/skills/` (`process-meeting`, `implement-req`, `req-check`) and `.cursor/rules/meetings.mdc`, then the `# meetspec (local only)` lines from `.git/info/exclude`.
+
 ## Quick start
 
 ```bash
 cd ~/code/client-project
 meetings install                      # once per project
+```
 
-meetings transcribe "~/Downloads/Kickoff (2026-10-13 18:19 GMT+5).mp4" \
-  --prompt "Acme, Stripe, HIPAA"      # names and words used in the call
+Add the client's names, product names and technical terms to `.meetings/glossary.md` (one per table row). They are passed to the speech model so they come out spelled right. Then transcribe:
+
+```bash
+meetings transcribe "~/Downloads/Kickoff (2026-10-13 18:19 GMT+5).mp4"
+# → .meetings/transcripts/2026-10-13-kickoff.md and .json
 ```
 
 Then ask your AI agent, inside the project:
@@ -131,14 +137,14 @@ Transcribes any audio or video file (`.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.
 - **One file**, or a folder with one recording in it: every line gets one label (the audio-only file is preferred when a folder has both audio and video).
 - **Per-person tracks**: lines are labelled with each person's name, taken from the file names. A Zoom folder with an `Audio Record` subfolder is detected automatically; for any other folder of per-person tracks, add `--per-speaker`.
 
-Output goes to `.meetings/transcripts/` inside a project, or `./transcripts/` elsewhere: a readable `.md` and a `.json` for agents and tools. The file name starts with the meeting date, read from the recording's name when it has one (Zoom, Google Meet and Teams names do) and otherwise from the file's modified date.
+Output goes to `.meetings/transcripts/` inside a project, or `./transcripts/` elsewhere: a readable `.md` and a `.json` for agents and tools. The file name starts with the meeting date, read from the recording's name when it has one (Zoom, Google Meet and Teams names do) and otherwise from the file's modified date. Transcribing the same recording again replaces its transcript; a different recording that would get the same name gets a `-2` suffix.
 
 | Option | Default | |
 | --- | --- | --- |
 | `--per-speaker` | | The folder holds one audio file per person |
 | `--model` | `large-v3` | See [Choosing a model](#choosing-a-model) |
-| `--language` | `en` | Language code, or `auto` to detect |
-| `--prompt` | | Names and terms used in the call; improves their spelling |
+| `--language` | `en` | Language code (`de`, `ur`, …), or `auto` to detect. Use `auto` for non-English or mixed-language calls |
+| `--prompt` | terms in `glossary.md` | Names and terms used in the call; improves their spelling. `--prompt ""` uses none |
 | `--speakers` | | JSON file mapping detected names to labels, e.g. `{"John Smith": "Client - John"}` |
 | `--label` | `Speaker` | Label when speakers are not separated |
 | `--device` | `auto` | `cpu` or `cuda` |
@@ -173,7 +179,7 @@ Everything an agent needs is in plain files, so any coding agent can do the work
 | Agent | How |
 | --- | --- |
 | Claude Code | Installed as skills: `/process-meeting`, `/implement-req`, `/req-check`. |
-| Cursor | Installed rule `.cursor/rules/meetings.mdc` sends it to `.meetings/AGENTS.md` when you mention meetings, transcripts or requirements. |
+| Cursor | Installed rule `.cursor/rules/meetings.mdc` lets Cursor's agent load `.meetings/AGENTS.md` when a request is about meetings, transcripts or requirements. To be sure, mention `.meetings/AGENTS.md` in your request. |
 | Codex, Gemini CLI, Copilot, Aider, others | Tell it to follow `.meetings/AGENTS.md`. To make that automatic, add one line to your own instructions file (`AGENTS.md`, `GEMINI.md`, …): `For client meetings and REQ-### requirements, follow .meetings/AGENTS.md.` |
 | ChatGPT or Claude in the browser | Upload the transcript `.md` (or `.json`) together with the playbook `.md` you want it to follow. |
 
@@ -215,24 +221,24 @@ Link code to it with the ID in a comment at the feature's entry point and in at 
 
 | Status | Meaning | Set by |
 | --- | --- | --- |
-| `proposed` | Heard in a meeting, not reviewed | `/process-meeting` |
+| `proposed` | Heard in a meeting, not reviewed | The agent (`process-meeting`) |
 | `approved` | Reviewed and confirmed by the client | A person |
-| `in-progress` | Being built | Developer or `/implement-req` |
+| `in-progress` | Being built | Developer or the agent (`implement-req`) |
 | `done` | Built, tested and reviewed | A person |
 | `dropped` | No longer wanted | A person |
 
 ## Choosing a model
 
-Models download once on first use (to `~/.cache/huggingface/hub`) and are shared by every project.
+Models download once on first use (to `~/.cache/huggingface/hub`, or `%USERPROFILE%\.cache\huggingface\hub` on Windows) and are shared by every project.
 
 | Model | Size | Notes |
 | --- | --- | --- |
 | `large-v3` | ~3 GB | Most accurate, any language. Slow on CPU. |
-| `turbo` | ~1.6 GB | Close to `large-v3`, much faster. Good default for mixed languages. |
+| `turbo` | ~1.6 GB | Close to `large-v3`, much faster, any language. |
 | `distil-large-v3` | ~1.5 GB | Fast and accurate, **English only**. |
 | `small`, `base`, `tiny` | 75–500 MB | Quick tests. Expect mistakes. |
 
-On a laptop without an NVIDIA GPU, start with `--model distil-large-v3` for English calls or `--model turbo` otherwise, and compare against `large-v3` on one real call.
+On a laptop without an NVIDIA GPU, start with `--model distil-large-v3` for English calls, or `--model turbo --language auto` for other or mixed languages, and compare against `large-v3` on one real call.
 
 ## Recording tips by platform
 
@@ -252,7 +258,8 @@ If the track names are not people's names, map them with `--speakers names.json`
 
 ## Privacy
 
-- Recordings and transcripts are read and written only on your computer. The only network access is downloading the model from Hugging Face the first time.
+- `meetings` itself reads recordings and writes transcripts only on your computer. Its only network access is downloading the model from Hugging Face the first time.
+- Your AI agent is different: when it follows a playbook, it reads the transcript like any other project file and sends it to its provider (Anthropic, OpenAI, …) under your account's terms. Only use agents you are allowed to share client conversations with.
 - `.meetings/` is excluded from git, so transcripts and notes are never committed by accident. That also means **they are not backed up**. Back the folder up yourself if you need to.
 - Recording laws differ by country and state, and some require everyone's consent. Ask at the start of every call.
 
@@ -268,7 +275,11 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 **"You are sending unauthenticated requests to the HF Hub".** Harmless. Set `HF_TOKEN` to a free Hugging Face token if downloads are slow.
 
-**Words or names are wrong.** Pass them with `--prompt`, and add them to `.meetings/glossary.md` so `/process-meeting` can spot mishearings.
+**Words or names are wrong.** Add them to `.meetings/glossary.md` and transcribe again; the glossary is used as the prompt automatically and also helps the agent spot mishearings.
+
+**The transcript is in the wrong language or reads like a translation.** The default language is English. Pass `--language auto`, or the right code such as `--language ur`.
+
+**Stopped with Ctrl+C or the download broke.** Run the same command again; a partly downloaded model resumes.
 
 **`No .meetings/ folder here`.** Run `meetings install` in the project root first.
 

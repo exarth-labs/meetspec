@@ -56,9 +56,26 @@ def add_excludes(project: Path, lines: list[str]) -> Path:
 
 
 def install(project: Path) -> None:
-    project = Path(git(project, "rev-parse", "--show-toplevel"))
+    if not project.is_dir():
+        sys.exit(f"Folder not found: {project}")
+    try:
+        top = subprocess.run(["git", "-C", str(project), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, check=True).stdout.strip()
+    except FileNotFoundError:
+        sys.exit("git is not installed or not on PATH.")
+    except subprocess.CalledProcessError:
+        sys.exit(f"{project} is not inside a git repository. meetings install hides its files from git "
+                 "through .git/info/exclude, so it needs one: run `git init` there first.")
+    project = Path(top)
     base = project / DIR_NAME
     skills_dir = project / ".claude" / "skills"
+    ours = [f"{DIR_NAME}/", *(f".claude/skills/{name}/" for name in PLAYBOOKS), CURSOR_RULE]
+
+    # Never overwrite files the project itself tracks (e.g. its own skill with the same name).
+    tracked = git(project, "ls-files", "--", *ours)
+    if tracked:
+        sys.exit("These paths are tracked in the project's git, so meetings install will not overwrite them:\n  "
+                 + "\n  ".join(tracked.splitlines()) + "\nRename or remove them first.")
 
     with as_file(files("meetings") / "kit") as kit:
         for sub in ("requirements", "meetings", "transcripts", "playbooks"):
@@ -79,15 +96,14 @@ def install(project: Path) -> None:
         rule.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(kit / "cursor-rule.mdc", rule)
 
-    ours = [f"{DIR_NAME}/", *(f".claude/skills/{name}/" for name in PLAYBOOKS), CURSOR_RULE]
     exclude = add_excludes(project, ours)
 
     print(f"Installed into {project}")
-    print(f"  {DIR_NAME}/              AGENTS.md, playbooks, templates, glossary; your requirements and notes")
-    print(f"  .claude/skills/        {', '.join(PLAYBOOKS)} (Claude Code)")
-    print(f"  {CURSOR_RULE}  (Cursor)")
-    print(f"  other agents: tell them to follow {DIR_NAME}/AGENTS.md")
-    print(f"  kept out of git via {exclude}")
+    print(f"  {DIR_NAME + '/':<28}AGENTS.md, playbooks, templates, glossary, your requirements and notes")
+    print(f"  {'.claude/skills/':<28}{', '.join(PLAYBOOKS)} (Claude Code)")
+    print(f"  {CURSOR_RULE:<28}rule for Cursor")
+    print(f"  {'other agents':<28}tell them to follow {DIR_NAME}/AGENTS.md")
+    print(f"Hidden from git on this machine via {exclude}")
     if (base / "scripts").is_dir():
         print(f"  note: {DIR_NAME}/scripts/ is from the old kit and no longer used; you can delete it "
               f"(and {DIR_NAME}/.venv/ if present).")

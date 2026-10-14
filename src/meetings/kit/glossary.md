@@ -1,9 +1,9 @@
 # Glossary
 
-Client names, product names and technical words used in meetings. The transcription tool and Claude use this to get spellings right.
+Client names, product names and technical words used in meetings, one per row.
 
-Copy the words list into `--prompt` when transcribing, e.g.
-`meetings transcribe <folder> --prompt "Acme, Stripe, HIPAA, Next.js"`
+- `meetings transcribe` passes the terms to the speech model automatically, so they are spelled right in transcripts. (`--prompt "…"` overrides this for one run.)
+- AI agents use the list to spot words that were probably misheard.
 
 | Term | Meaning |
 | --- | --- |

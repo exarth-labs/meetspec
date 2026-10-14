@@ -3,12 +3,15 @@ from pathlib import Path
 
 import pytest
 
+from meetings import transcribe
 from meetings.transcribe import (
     Segment,
     find_inputs,
     fmt_ts,
+    glossary_prompt,
     meeting_date_and_slug,
     merge_segments,
+    output_name,
     slugify,
     speaker_from_filename,
     write_outputs,
@@ -136,3 +139,116 @@ def test_write_outputs(tmp_path):
     data = json.loads(js.read_text())
     assert data["schema"] == "meetspec/transcript/v1"
     assert data["segments"][0] == {"start": 65, "end": 70, "speaker": "A", "text": "Hello."}
+
+
+def test_merge_keeps_lines_short_when_everyone_shares_a_label():
+    # one label for a whole call: back-to-back segments must not become one huge line
+    segments = [Segment(i * 5, i * 5 + 4.5, "Speaker", f"Line {i}.") for i in range(30)]
+    merged = merge_segments(segments)
+    assert len(merged) > 1
+    assert all(s.end - s.start <= 30 for s in merged)
+
+
+def test_zoom_cloud_and_noise_words(tmp_path):
+    path = tmp_path / "GMT20261013-131915_Recording_1920x1080.mp4"
+    path.write_bytes(b"x")
+    assert meeting_date_and_slug(path) == ("2026-10-13", "meeting")
+
+
+def test_glossary_prompt(tmp_path):
+    glossary = tmp_path / "glossary.md"
+    glossary.write_text(
+        "﻿# Glossary\n\n| Term | Meaning |\n| --- | --- |\n| Acme | client |\n| iSolved | payroll |\n"
+        "| Acme | duplicate |\n| | |\n", encoding="utf-8")
+    assert glossary_prompt(glossary) == "Acme, iSolved."
+    glossary.write_text("| Term | Meaning |\n| --- | --- |\n| | |\n")
+    assert glossary_prompt(glossary) is None
+    assert glossary_prompt(tmp_path / "missing.md") is None
+
+
+def test_glossary_prompt_is_capped(tmp_path):
+    glossary = tmp_path / "glossary.md"
+    glossary.write_text("".join(f"| Term{i:03d} | x |\n" for i in range(200)))
+    prompt = glossary_prompt(glossary)
+    assert len(prompt) <= 601 and prompt.endswith(".") and not prompt.endswith(",.")
+
+
+def test_output_name_reuses_same_recording_and_numbers_others(tmp_path):
+    meta = {"source_name": "a", "files": ["a.m4a"]}
+    assert output_name(tmp_path, "2026-10-13-meeting", meta) == "2026-10-13-meeting"
+    (tmp_path / "2026-10-13-meeting.json").write_text(json.dumps({"meta": meta}))
+    assert output_name(tmp_path, "2026-10-13-meeting", meta) == "2026-10-13-meeting"
+    other = {"source_name": "b", "files": ["b.m4a"]}
+    assert output_name(tmp_path, "2026-10-13-meeting", other) == "2026-10-13-meeting-2"
+
+
+# ---------------------------------------------------------------- main() with a fake model
+
+class FakeInfo:
+    duration = 12.0
+    language = "en"
+
+
+class FakeSegment:
+    def __init__(self, start, end, text):
+        self.start, self.end, self.text = start, end, text
+
+
+class FakeModel:
+    calls: list[dict] = []
+    fail: Exception | None = None
+
+    def __init__(self, path, device, compute_type):
+        self.compute_type = compute_type
+
+    def transcribe(self, path, **kwargs):
+        FakeModel.calls.append(kwargs)
+        if FakeModel.fail:
+            raise FakeModel.fail
+        return iter([FakeSegment(0.0, 4.0, " We need CSV export. "), FakeSegment(5.0, 9.0, "By Friday.")]), FakeInfo()
+
+
+@pytest.fixture
+def fake_whisper(monkeypatch):
+    import faster_whisper
+
+    FakeModel.calls, FakeModel.fail = [], None
+    monkeypatch.setattr(faster_whisper, "WhisperModel", FakeModel)
+    monkeypatch.setattr(transcribe, "model_path", lambda name: "/fake/model")
+    return FakeModel
+
+
+def test_main_uses_glossary_and_prints_json(git_repo, tmp_path, fake_whisper, capsys):
+    base = git_repo / ".meetings"
+    base.mkdir()
+    (base / "glossary.md").write_text("| Term | Meaning |\n| --- | --- |\n| Acme | client |\n")
+    recording = tmp_path / "Acme sync (2026-10-13 18:19 GMT+5).m4a"
+    recording.write_bytes(b"x")
+
+    transcribe.main([str(recording), "--json"])
+
+    assert fake_whisper.calls[0]["initial_prompt"] == "Acme."
+    result = json.loads(capsys.readouterr().out)
+    assert result["transcript_json"].endswith("2026-10-13-acme-sync.json")
+    data = json.loads(Path(result["transcript_json"]).read_text())
+    assert data["meta"]["language"] == "en" and data["meta"]["mode"] == "single"
+    assert [s["text"] for s in data["segments"]] == ["We need CSV export. By Friday."]
+
+
+def test_main_explicit_empty_prompt_disables_glossary(git_repo, tmp_path, fake_whisper):
+    (git_repo / ".meetings").mkdir()
+    (git_repo / ".meetings" / "glossary.md").write_text("| Acme | client |\n")
+    recording = tmp_path / "call.m4a"
+    recording.write_bytes(b"x")
+    transcribe.main([str(recording), "--prompt", ""])
+    assert fake_whisper.calls[0]["initial_prompt"] is None
+
+
+def test_main_reports_transcription_errors_without_traceback(git_repo, tmp_path, fake_whisper):
+    recording = tmp_path / "call.m4a"
+    recording.write_bytes(b"x")
+    fake_whisper.fail = RuntimeError("CUDA failed: libcudnn not found")
+    with pytest.raises(SystemExit) as exc:
+        transcribe.main([str(recording), "--device", "cuda"])
+    message = str(exc.value.code)
+    assert "Could not transcribe call.m4a" in message and "--device cpu" in message

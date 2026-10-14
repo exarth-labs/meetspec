@@ -15,6 +15,7 @@ The transcript is machine-made from audio. Names, numbers, dates and technical w
 
 1. **Read the context first**
    - The whole transcript. Take the meeting date from the file name (it is the recording date, not today).
+   - Check `meta.mode`. If it is `single`, every line has the same speaker label: work out who is speaking from context, and when it matters (who asked for what, who agreed) and you are not sure, make it an open question.
    - All `.meetings/requirements/REQ-*.md`, the latest 2–3 files in `.meetings/meetings/`, and `.meetings/glossary.md`.
    - Note the highest existing REQ number; new IDs continue from it.
 
@@ -35,7 +36,7 @@ The transcript is machine-made from audio. Names, numbers, dates and technical w
 4. **Write the meeting note** at `.meetings/meetings/<YYYY-MM-DD>-<slug>.md` using `.meetings/meetings/_template.md`. If a note for that meeting already exists, ask before overwriting.
 
 5. **Update requirements**
-   - New requirement → new file `.meetings/requirements/REQ-<NNN>-<slug>.md` from `.meetings/requirements/_template.md`, with `status: proposed`, `client_confirmed: no`, and `source:` pointing to the meeting note and timestamp. Keep the frontmatter on single lines; the status script reads it.
+   - New requirement → new file `.meetings/requirements/REQ-<NNN>-<slug>.md` from `.meetings/requirements/_template.md`, with `status: proposed`, `client_confirmed: no`, and `source:` pointing to the meeting note and timestamp. Keep the frontmatter on single lines; `meetings status` reads it.
    - Change to an existing requirement → do **not** rewrite it. Add a `## Proposed change (<date>)` section with the new wording, the reason, and the source. Leave status and acceptance criteria as they are.
    - Dropped requirement → add a `## Proposed change (<date>)` section saying the client wants it dropped. Do not change the status yourself.
    - Add a line under `## History` of every requirement you touched.

@@ -14,9 +14,13 @@ Two input modes:
 The meeting date is read from the file or folder name when it has one (Zoom, Meet and Teams
 names do), otherwise from the file's modified date.
 
+Inside a project, the terms in .meetings/glossary.md are used as the --prompt automatically.
+
 Output (in --out; default .meetings/transcripts in the project, or ./transcripts outside one):
-  <name>.md    readable transcript with timestamps and speakers
-  <name>.json  same data, machine-readable (used by the /process-meeting skill)
+  <date>-<slug>.md    readable transcript with timestamps and speakers
+  <date>-<slug>.json  same data, machine-readable (schema meetspec/transcript/v1)
+Transcribing the same recording again replaces its transcript; a different recording that
+would get the same name gets a -2, -3, ... suffix instead.
 
 Examples:
   meetings transcribe "~/Documents/Zoom/2026-10-14 15.00.00 Acme kickoff"
@@ -39,9 +43,11 @@ from pathlib import Path
 
 from .project import find_base
 
-AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus", ".webm", ".mp4", ".mkv", ".mov"}
-AUDIO_ONLY_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus"}
+AUDIO_ONLY_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus", ".wma", ".amr", ".aif", ".aiff", ".caf"}
+AUDIO_EXTS = AUDIO_ONLY_EXTS | {".webm", ".mp4", ".m4v", ".mkv", ".mov", ".avi", ".3gp"}
 MERGE_GAP_SECONDS = 1.5
+MERGE_MAX_SECONDS = 30  # keep merged lines short enough that their timestamps stay useful
+PROMPT_MAX_CHARS = 600  # Whisper only uses the last ~224 tokens of the prompt
 TRANSCRIPT_SCHEMA = "meetspec/transcript/v1"
 
 
@@ -136,6 +142,27 @@ def load_speaker_map(path: Path | None) -> dict[str, str]:
     return data
 
 
+def glossary_prompt(glossary: Path) -> str | None:
+    """Build a Whisper prompt from the Term column of .meetings/glossary.md."""
+    try:
+        text = glossary.read_text(encoding="utf-8-sig")
+    except OSError:
+        return None
+    terms = []
+    for line in text.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")] if line.lstrip().startswith("|") else []
+        term = cells[0] if cells else ""
+        if term and term.lower() != "term" and not set(term) <= set("-: "):
+            terms.append(term)
+    prompt = ""
+    for term in dict.fromkeys(terms):
+        longer = f"{prompt}, {term}" if prompt else term
+        if len(longer) > PROMPT_MAX_CHARS:
+            break
+        prompt = longer
+    return f"{prompt}." if prompt else None
+
+
 # ---------------------------------------------------------------- transcription
 
 MODEL_FILES = ["config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*"]
@@ -163,11 +190,23 @@ def model_path(name: str) -> str:
 
     repo_id = name if "/" in name else utils._MODELS[name]
     log(f"Downloading model '{name}' from {repo_id} (one time, cached for later runs)...")
-    return huggingface_hub.snapshot_download(repo_id, allow_patterns=MODEL_FILES)
+    try:
+        return huggingface_hub.snapshot_download(repo_id, allow_patterns=MODEL_FILES)
+    except Exception as exc:
+        sys.exit(f"Could not download model '{name}' ({type(exc).__name__}: {exc}).\n"
+                 "Check your internet connection and try again; the download resumes where it stopped.")
+
+
+def gpu_hint(exc: Exception, device: str) -> str:
+    text = str(exc).lower()
+    if device != "cpu" and any(word in text for word in ("cuda", "cudnn", "cublas", "gpu")):
+        return "\nThe GPU could not be used. Install the CUDA 12 and cuDNN 9 libraries, or run with --device cpu."
+    return ""
 
 
 def transcribe_file(model, path: Path, speaker: str, language: str | None,
-                    prompt: str | None, vad: bool) -> list[Segment]:
+                    prompt: str | None, vad: bool) -> tuple[list[Segment], str | None]:
+    """Return the segments and the (given or detected) language."""
     from tqdm import tqdm
 
     segments, info = model.transcribe(
@@ -179,7 +218,8 @@ def transcribe_file(model, path: Path, speaker: str, language: str | None,
     )
     out: list[Segment] = []
     total = max(1, round(info.duration))
-    with tqdm(total=total, desc=f"{fmt_ts(0)} / {fmt_ts(total)}", dynamic_ncols=True,
+    # disable=None hides the bar when stderr is not a terminal (logs, CI, AI agents)
+    with tqdm(total=total, desc=f"{fmt_ts(0)} / {fmt_ts(total)}", dynamic_ncols=True, disable=None,
               bar_format="  {desc} {percentage:3.0f}%|{bar}| elapsed {elapsed}, left {remaining}") as bar:
         def advance(to: int) -> None:
             bar.set_description_str(f"{fmt_ts(to)} / {fmt_ts(total)}", refresh=False)
@@ -190,17 +230,20 @@ def transcribe_file(model, path: Path, speaker: str, language: str | None,
             advance(min(total, round(s.end)))
             text = s.text.strip()
             if text:
-                out.append(Segment(start=float(s.start), end=float(s.end), speaker=speaker, text=text))
+                out.append(Segment(round(float(s.start), 2), round(float(s.end), 2), speaker, text))
         advance(total)
-    return out
+    return out, info.language
 
 
-def merge_segments(segments: list[Segment], gap: float = MERGE_GAP_SECONDS) -> list[Segment]:
-    """Sort by time and join consecutive lines from the same speaker."""
+def merge_segments(segments: list[Segment], gap: float = MERGE_GAP_SECONDS,
+                   max_len: float = MERGE_MAX_SECONDS) -> list[Segment]:
+    """Sort by time and join consecutive lines from the same speaker, up to max_len seconds
+    per line so timestamps stay precise (important when everyone shares one label)."""
     merged: list[Segment] = []
     for seg in sorted(segments, key=lambda s: (s.start, s.end)):
         last = merged[-1] if merged else None
-        if last and last.speaker == seg.speaker and seg.start - last.end <= gap:
+        if (last and last.speaker == seg.speaker and seg.start - last.end <= gap
+                and seg.end - last.start <= max_len):
             last.end = max(last.end, seg.end)
             last.text = f"{last.text} {seg.text}"
         else:
@@ -228,7 +271,13 @@ DATE_PATTERNS = [
     # Teams 'Acme-20261014_150000-Meeting Recording', phones 'REC_20261014_150000'
     re.compile(r"(?<!\d)(?P<y>20\d{2})(?P<m>[01]\d)(?P<d>[0-3]\d)(?:[_T-]?\d{4,6})?(?!\d)"),
 ]
-NOISE = re.compile(r"\b(?:meeting recording|recording|audio only|audio_only)\b|\(\s*\)", re.IGNORECASE)
+# Words around the date that say nothing about the meeting: Teams "Meeting Recording", Zoom cloud
+# "GMT20261014-150000_Recording_1920x1080", "audio_only", empty brackets left by the date.
+NOISE = re.compile(
+    r"(?<![A-Za-z])(?:meeting[ _-]?recording|recording|audio[ _-]?only|gmt|utc|\d{3,4}x\d{3,4})(?![A-Za-z])"
+    r"|\(\s*\)",
+    re.IGNORECASE,
+)
 
 
 def meeting_date_and_slug(input_path: Path) -> tuple[str, str]:
@@ -247,6 +296,20 @@ def meeting_date_and_slug(input_path: Path) -> tuple[str, str]:
     return f"{datetime.fromtimestamp(input_path.stat().st_mtime):%Y-%m-%d}", slugify(NOISE.sub(" ", source_name))
 
 
+def output_name(out_dir: Path, name: str, meta: dict) -> str:
+    """Reuse the name for the same recording; add -2, -3, ... for a different one."""
+    candidate, n = name, 2
+    while (out_dir / f"{candidate}.json").exists():
+        try:
+            old = json.loads((out_dir / f"{candidate}.json").read_text(encoding="utf-8"))["meta"]
+        except (OSError, ValueError, KeyError, TypeError):
+            old = {}
+        if old.get("source_name") == meta["source_name"] and old.get("files") == meta["files"]:
+            return candidate
+        candidate, n = f"{name}-{n}", n + 1
+    return candidate
+
+
 def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / f"{name}.md"
@@ -261,11 +324,11 @@ def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict)
         "",
         "> Machine transcript. Words can be wrong, especially names and numbers. "
         "Check the recording at the timestamp before treating a line as a requirement.",
-        "",
     ]
     if meta["mode"] == "single":
-        lines[-1:-1] = ["> Speakers were not separated in this recording: every line has the same label, "
-                        "so who said what has to be inferred from context.", ""]
+        lines += [">", "> Speakers were not separated in this recording: every line has the same label, "
+                       "so who said what has to be inferred from context."]
+    lines.append("")
     for seg in segments:
         lines.append(f"**[{fmt_ts(seg.start)}] {seg.speaker}:** {seg.text}")
         lines.append("")
@@ -282,7 +345,8 @@ def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict)
 # ---------------------------------------------------------------- main
 
 def main(argv: list[str] | None = None, prog: str | None = None) -> None:
-    parser = argparse.ArgumentParser(prog=prog, description="Transcribe a meeting recording locally with faster-whisper.")
+    parser = argparse.ArgumentParser(prog=prog,
+                                     description="Transcribe a meeting recording locally with faster-whisper.")
     parser.add_argument("input", type=Path,
                         help="an audio/video file, or a folder with the recording (Zoom, Meet, Teams, ...)")
     parser.add_argument("--per-speaker", action="store_true",
@@ -290,13 +354,18 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
     parser.add_argument("--out", type=Path, default=None,
                         help="output folder (default: .meetings/transcripts in a project, else ./transcripts)")
     parser.add_argument("--model", default="large-v3",
-                        help="whisper model: large-v3 (best), distil-large-v3 (faster, English), medium, small")
-    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
+                        help="whisper model: large-v3 (most accurate), turbo (fast, any language), "
+                             "distil-large-v3 (fast, English only), small, base, tiny (default: large-v3)")
+    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"],
+                        help="cuda needs an NVIDIA GPU with CUDA 12 and cuDNN 9 (default: auto)")
     parser.add_argument("--compute-type", default=None,
                         help="e.g. int8, float16, float32 (default: int8 on CPU, the model's own type on GPU)")
-    parser.add_argument("--language", default="en", help="language code, or 'auto' to detect (default: en)")
+    parser.add_argument("--language", default="en",
+                        help="language code, or 'auto' to detect; use auto for non-English or mixed calls "
+                             "(default: en)")
     parser.add_argument("--prompt", default=None,
-                        help="names and technical words used in the meeting; improves spelling of them")
+                        help="names and technical words used in the meeting; improves their spelling "
+                             "(default: the terms in .meetings/glossary.md; --prompt \"\" for none)")
     parser.add_argument("--speakers", type=Path, default=None,
                         help='JSON map from detected name to label, e.g. {"John Smith": "Client - John"}')
     parser.add_argument("--label", default="Speaker", help="speaker label when speakers are not separated")
@@ -311,6 +380,12 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
     inputs, mode = find_inputs(input_path, args.per_speaker)
     speaker_map = load_speaker_map(args.speakers.expanduser() if args.speakers else None)
     language = None if args.language == "auto" else args.language
+    prompt = args.prompt
+    if prompt is None and base is not None:
+        prompt = glossary_prompt(base / "glossary.md")
+        if prompt:
+            log(f"Using the glossary as the prompt: {prompt}")
+    prompt = prompt or None
 
     import ctranslate2
     from faster_whisper import WhisperModel
@@ -320,16 +395,26 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
         on_cpu = args.device == "cpu" or (args.device == "auto" and ctranslate2.get_cuda_device_count() == 0)
         compute_type = "int8" if on_cpu else "default"
 
-    path = model_path(args.model)
+    model_dir = model_path(args.model)
     log(f"Loading model '{args.model}'...")
-    model = WhisperModel(path, device=args.device, compute_type=compute_type)
+    try:
+        model = WhisperModel(model_dir, device=args.device, compute_type=compute_type)
+    except Exception as exc:
+        sys.exit(f"Could not load model '{args.model}' ({type(exc).__name__}: {exc}){gpu_hint(exc, args.device)}")
 
     all_segments: list[Segment] = []
+    languages: list[str] = []
     for path, detected in inputs:
         raw_name = detected or args.label
         speaker = speaker_map.get(raw_name, raw_name)
         log(f"Transcribing {path.name} as '{speaker}'")
-        all_segments.extend(transcribe_file(model, path, speaker, language, args.prompt, not args.no_vad))
+        try:
+            found, lang = transcribe_file(model, path, speaker, language, prompt, not args.no_vad)
+        except Exception as exc:
+            sys.exit(f"Could not transcribe {path.name} ({type(exc).__name__}: {exc}){gpu_hint(exc, args.device)}")
+        all_segments.extend(found)
+        if lang:
+            languages.append(lang)
 
     if not all_segments:
         sys.exit("No speech found. Check the recording or try --no-vad.")
@@ -337,17 +422,17 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
     segments = merge_segments(all_segments)
     source_name = input_path.name if input_path.is_dir() else input_path.stem
     meeting_date, slug = meeting_date_and_slug(input_path)
-    name = f"{meeting_date}-{slug}"
     meta = {
         "source_name": source_name,
         "transcribed_at": datetime.now().isoformat(timespec="seconds"),
         "mode": mode,
         "model": args.model,
         "compute_type": compute_type,
-        "language": language,
+        "language": language or (max(set(languages), key=languages.count) if languages else None),
         "speakers": sorted({s.speaker for s in segments}),
         "files": [p.name for p, _ in inputs],
     }
+    name = output_name(out_dir, f"{meeting_date}-{slug}", meta)
     md_path, json_path = write_outputs(segments, out_dir, name, meta)
     if args.json:
         print(json.dumps({"transcript_json": str(json_path), "transcript_md": str(md_path),

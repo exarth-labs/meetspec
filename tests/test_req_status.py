@@ -97,3 +97,18 @@ def test_status_json_is_read_only_and_parseable(git_repo, capsys):
     assert data["problems"] == [{"level": "WARN", "requirement": "REQ-001",
                                  "message": "not confirmed by the client yet"}]
     assert not (base / "STATUS.md").exists()
+
+
+def test_bom_confirmation_spellings_and_test_classes(git_repo):
+    base = git_repo / ".meetings" / "requirements"
+    base.mkdir(parents=True)
+    text = "\ufeff---\nid: REQ-001\ntitle: X\nstatus: approved\nclient_confirmed: True\n---\n"
+    (base / "REQ-001-x.md").write_text(text, encoding="utf-8")
+    (git_repo / "src").mkdir()
+    (git_repo / "src" / "InvoiceExportTest.java").write_text("// REQ-001\n")
+    (git_repo / "src" / "Latest.java").write_text("// REQ-001\n")
+
+    reqs, findings = req_status.load_requirements(base)
+    assert findings == [] and reqs["REQ-001"].client_confirmed == "yes"
+    refs = req_status.scan_code(git_repo, git_repo / ".meetings")
+    assert sorted(refs["REQ-001"]) == [("src/InvoiceExportTest.java:1", True), ("src/Latest.java:1", False)]

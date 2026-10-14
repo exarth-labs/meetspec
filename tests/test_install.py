@@ -50,12 +50,26 @@ def test_install_from_a_subfolder_uses_repo_root(git_repo):
     assert not (sub / ".meetings").exists()
 
 
-def test_install_outside_git_fails(tmp_path):
-    with pytest.raises(SystemExit):
-        install(tmp_path)
-
-
 def test_other_claude_files_stay_visible(git_repo):
     install(git_repo)
     (git_repo / ".claude" / "settings.json").write_text("{}")
     assert ".claude/settings.json" in git_status(git_repo)
+
+
+def test_install_refuses_to_overwrite_tracked_files(git_repo):
+    skill = git_repo / ".claude" / "skills" / "req-check"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("the project's own skill")
+    subprocess.run(["git", "add", "."], cwd=git_repo, check=True)
+
+    with pytest.raises(SystemExit) as exc:
+        install(git_repo)
+    assert "will not overwrite" in str(exc.value.code)
+    assert (skill / "SKILL.md").read_text() == "the project's own skill"
+    assert not (git_repo / ".meetings").exists()
+
+
+def test_install_outside_git_explains_why(tmp_path):
+    with pytest.raises(SystemExit) as exc:
+        install(tmp_path)
+    assert "git init" in str(exc.value.code)

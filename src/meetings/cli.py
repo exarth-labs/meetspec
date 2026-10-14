@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import sys
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 USAGE = """usage: meetings <command> [options]
 
 Transcribe client calls locally and track requirements.
 
 commands:
-  install [project]     set up .meetings/ and the Claude skills in a project (run again to update)
+  install [project]     set up .meetings/ and the AI agent playbooks in a project (run again to update)
   transcribe <input>    transcribe a meeting recording (any audio/video file or recording folder)
   status                check requirements against code, write .meetings/STATUS.md
 
@@ -24,7 +24,10 @@ def main() -> None:
         print(USAGE)
         return
     if args[0] in {"-V", "--version"}:
-        print(f"meetings {version('meetspec')}")
+        try:
+            print(f"meetings {version('meetspec')}")
+        except PackageNotFoundError:
+            print("meetings (not installed as a package)")
         return
 
     command, rest = args[0], args[1:]
@@ -36,4 +39,8 @@ def main() -> None:
         from .req_status import main as run
     else:
         sys.exit(f"Unknown command: {command}\n\n{USAGE}")
-    run(rest, prog=f"meetings {command}")
+    try:
+        run(rest, prog=f"meetings {command}")
+    except KeyboardInterrupt:
+        print("\nCancelled.", file=sys.stderr)
+        sys.exit(130)

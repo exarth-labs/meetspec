@@ -4,7 +4,7 @@ title: Short title in plain English
 status: proposed          # proposed | approved | in-progress | done | dropped
 client_confirmed: no      # yes only after the client confirmed it in writing
 confirmed_on:             # YYYY-MM-DD, with a link to the email below
-source: docs/meetings/YYYY-MM-DD-slug.md [hh:mm:ss]
+source: .meetings/meetings/YYYY-MM-DD-slug.md [hh:mm:ss]
 owner:
 ---
 
