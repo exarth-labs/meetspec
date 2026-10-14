@@ -35,6 +35,7 @@ from .project import find_base
 AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus", ".webm", ".mp4", ".mkv", ".mov"}
 AUDIO_ONLY_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus"}
 MERGE_GAP_SECONDS = 1.5
+TRANSCRIPT_SCHEMA = "ai-transcripter/transcript/v1"
 
 
 @dataclass
@@ -43,6 +44,11 @@ class Segment:
     end: float
     speaker: str
     text: str
+
+
+def log(message: str) -> None:
+    """Progress messages go to stderr so stdout stays clean for results (and --json)."""
+    print(message, file=sys.stderr, flush=True)
 
 
 # ---------------------------------------------------------------- input discovery
@@ -139,7 +145,7 @@ def model_path(name: str) -> str:
     from faster_whisper import utils
 
     repo_id = name if "/" in name else utils._MODELS[name]
-    print(f"Downloading model '{name}' from {repo_id} (one time, cached for later runs)...", flush=True)
+    log(f"Downloading model '{name}' from {repo_id} (one time, cached for later runs)...")
     return huggingface_hub.snapshot_download(repo_id, allow_patterns=MODEL_FILES)
 
 
@@ -223,13 +229,17 @@ def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict)
         "Check the recording at the timestamp before treating a line as a requirement.",
         "",
     ]
+    if meta["mode"] == "single":
+        lines[-1:-1] = ["> Speakers were not separated in this recording: every line has the same label, "
+                        "so who said what has to be inferred from context.", ""]
     for seg in segments:
         lines.append(f"**[{fmt_ts(seg.start)}] {seg.speaker}:** {seg.text}")
         lines.append("")
     md_path.write_text("\n".join(lines), encoding="utf-8")
 
     json_path.write_text(
-        json.dumps({"meta": meta, "segments": [asdict(s) for s in segments]}, indent=2, ensure_ascii=False),
+        json.dumps({"schema": TRANSCRIPT_SCHEMA, "meta": meta, "segments": [asdict(s) for s in segments]},
+                   indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     return md_path, json_path
@@ -254,6 +264,8 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
                         help='JSON map from detected name to label, e.g. {"John Smith": "Client - John"}')
     parser.add_argument("--label", default="Speaker", help="speaker label in single-file mode")
     parser.add_argument("--no-vad", action="store_true", help="disable silence filtering")
+    parser.add_argument("--json", action="store_true",
+                        help="print the result as JSON on stdout (progress still goes to stderr)")
     args = parser.parse_args(argv)
     base = find_base()
     out_dir = args.out.expanduser() if args.out else (base / "transcripts" if base else Path("transcripts"))
@@ -272,14 +284,14 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
         compute_type = "int8" if on_cpu else "default"
 
     path = model_path(args.model)
-    print(f"Loading model '{args.model}'...", flush=True)
+    log(f"Loading model '{args.model}'...")
     model = WhisperModel(path, device=args.device, compute_type=compute_type)
 
     all_segments: list[Segment] = []
     for path, detected in inputs:
         raw_name = detected or args.label
         speaker = speaker_map.get(raw_name, raw_name)
-        print(f"Transcribing {path.name} as '{speaker}'", flush=True)
+        log(f"Transcribing {path.name} as '{speaker}'")
         all_segments.extend(transcribe_file(model, path, speaker, language, args.prompt, not args.no_vad))
 
     if not all_segments:
@@ -300,5 +312,9 @@ def main(argv: list[str] | None = None, prog: str | None = None) -> None:
         "files": [p.name for p, _ in inputs],
     }
     md_path, json_path = write_outputs(segments, out_dir, name, meta)
-    print(f"Done. {len(segments)} lines.\n  {md_path}\n  {json_path}")
+    if args.json:
+        print(json.dumps({"transcript_json": str(json_path), "transcript_md": str(md_path),
+                          "lines": len(segments), "speakers": meta["speakers"], "mode": mode}, indent=2))
+    else:
+        print(f"Done. {len(segments)} lines.\n  {md_path}\n  {json_path}")
 

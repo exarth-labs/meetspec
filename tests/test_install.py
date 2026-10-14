@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from meetings.install import SKILLS, install
+from meetings.install import CURSOR_RULE, PLAYBOOKS, install
 
 
 def git_status(repo) -> str:
@@ -14,11 +14,14 @@ def test_install_creates_kit_and_hides_it_from_git(git_repo):
     install(git_repo)
 
     base = git_repo / ".meetings"
-    for path in ("README.md", "glossary.md", "requirements/_template.md", "meetings/_template.md"):
+    for path in ("AGENTS.md", "README.md", "glossary.md", "requirements/_template.md", "meetings/_template.md"):
         assert (base / path).is_file(), path
     assert (base / "transcripts").is_dir()
-    for name in SKILLS:
-        assert (git_repo / ".claude" / "skills" / name / "SKILL.md").is_file()
+    for name in PLAYBOOKS:
+        playbook = (base / "playbooks" / f"{name}.md").read_text()
+        assert (git_repo / ".claude" / "skills" / name / "SKILL.md").read_text() == playbook
+        assert f"playbooks/{name}.md" in (base / "AGENTS.md").read_text()
+    assert ".meetings/AGENTS.md" in (git_repo / CURSOR_RULE).read_text()
     assert git_status(git_repo) == ""
 
 

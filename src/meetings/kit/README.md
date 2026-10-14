@@ -4,6 +4,8 @@ This folder holds client meeting transcripts, notes and requirements for this pr
 
 ```text
 .meetings/
+  AGENTS.md       instructions for AI agents (Claude Code, Codex, Cursor, …)
+  playbooks/      step-by-step instructions for each task
   requirements/   REQ-###-*.md — the source of truth for what to build
   meetings/       meeting notes and client confirmation emails
   transcripts/    machine transcripts (confidential)
@@ -15,19 +17,19 @@ This folder holds client meeting transcripts, notes and requirements for this pr
 
 1. **Record the call.** Ask for consent at the start ("Is it OK if we record this so we don't miss anything?").
 2. **Transcribe locally.** `meetings transcribe "<zoom folder>" --prompt "<names and product words>"`
-3. **Process.** In Claude Code: `/process-meeting .meetings/transcripts/<file>.json` writes the meeting note, proposes requirement changes and drafts a confirmation email.
+3. **Process.** Ask your AI agent. In Claude Code: `/process-meeting .meetings/transcripts/<file>.json`; in other agents: "Follow .meetings/AGENTS.md to process .meetings/transcripts/<file>.json". It writes the meeting note, proposes requirement changes and drafts a confirmation email.
 4. **Review** the new files against the recording wherever something looks wrong.
 5. **Confirm with the client.** Send the drafted email. When the client replies, set `client_confirmed: yes`, `confirmed_on:` and `status: approved` on those requirements.
-6. **Build.** `/implement-req REQ-012`
-7. **Check.** `meetings status` for links between requirements and code; `/req-check` for whether the code actually meets the acceptance criteria.
+6. **Build.** `/implement-req REQ-012` in Claude Code, or "implement REQ-012" elsewhere.
+7. **Check.** `meetings status` for links between requirements and code; the `req-check` playbook (`/req-check` in Claude Code) for whether the code actually meets the acceptance criteria.
 
 ## Requirement statuses
 
 | Status | Meaning | Who sets it |
 | --- | --- | --- |
-| proposed | Heard in a meeting, not reviewed | Claude (`/process-meeting`) |
+| proposed | Heard in a meeting, not reviewed | The AI agent (`process-meeting`) |
 | approved | Reviewed and confirmed by the client | A person |
-| in-progress | Being built | Developer or Claude |
+| in-progress | Being built | Developer or AI agent |
 | done | Built, tested, reviewed | A person |
 | dropped | Client no longer wants it | A person |
 

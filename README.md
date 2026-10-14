@@ -7,7 +7,7 @@
 
 Turn client calls into requirements you can build against, without the audio ever leaving your machine.
 
-`ai-transcripter` transcribes Zoom recordings locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to [Claude Code](https://claude.com/claude-code) skills that write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
+`ai-transcripter` transcribes Zoom recordings locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
 
 ```text
 Zoom call ──► meetings transcribe ──► /process-meeting ──► you review, client confirms
@@ -23,7 +23,7 @@ Zoom call ──► meetings transcribe ──► /process-meeting ──► you
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Commands](#commands)
-- [Claude Code skills](#claude-code-skills)
+- [AI agents](#ai-agents)
 - [Requirement files](#requirement-files)
 - [Choosing a model](#choosing-a-model)
 - [Zoom setup](#zoom-setup)
@@ -39,6 +39,7 @@ Zoom call ──► meetings transcribe ──► /process-meeting ──► you
 - **Progress you can see.** Download progress in MB and transcription progress against the length of the call.
 - **Requirements as files.** Each requirement is a Markdown file with a status, a client confirmation flag and acceptance criteria.
 - **Code linked to requirements.** `REQ-012` in a comment or test name ties code to a requirement; `meetings status` reports what is missing.
+- **Works with any AI agent.** An `AGENTS.md`, step-by-step playbooks, versioned JSON for transcripts and status, and `--json` output on the CLI. Claude Code skills and a Cursor rule are installed for you.
 - **Stays out of your project's git.** Everything lives in a `.meetings/` folder hidden through `.git/info/exclude`, on your machine only. The project's `.gitignore` is never touched.
 - **macOS, Windows and Linux.**
 
@@ -76,7 +77,7 @@ To get the latest version:
 uv tool upgrade ai-transcripter
 ```
 
-Then run `meetings install` again in each project to refresh its skills and templates.
+Then run `meetings install` again in each project to refresh its playbooks, skills and templates.
 
 ### Uninstall
 
@@ -92,17 +93,15 @@ meetings transcribe "~/Documents/Zoom/2026-10-13 18.19.15 Kickoff" \
   --prompt "Acme, Stripe, HIPAA"      # names and words used in the call
 ```
 
-Then in Claude Code, inside the project:
+Then ask your AI agent, inside the project:
 
-```text
-/process-meeting .meetings/transcripts/2026-10-13-kickoff.json
-```
+| Agent | Say |
+| --- | --- |
+| Claude Code | `/process-meeting .meetings/transcripts/2026-10-13-kickoff.json` |
+| Cursor | "Process the meeting in .meetings/transcripts/2026-10-13-kickoff.json" |
+| Codex, Gemini CLI, others | "Follow .meetings/AGENTS.md to process .meetings/transcripts/2026-10-13-kickoff.json" |
 
-Review the notes and proposed requirements it wrote in `.meetings/`, send the drafted confirmation email, and mark confirmed requirements `approved`. Then:
-
-```text
-/implement-req REQ-001
-```
+Review the notes and proposed requirements it wrote in `.meetings/`, send the drafted confirmation email, and mark confirmed requirements `approved`. Then ask it to implement one: `/implement-req REQ-001` in Claude Code, or "implement REQ-001" elsewhere.
 
 ## Commands
 
@@ -116,10 +115,13 @@ Sets up a project. Run it in the project folder (or pass the path). It must be a
 | `.meetings/meetings/` | Meeting notes and confirmation emails |
 | `.meetings/transcripts/` | Transcripts |
 | `.meetings/glossary.md` | Names and technical words, for better spelling |
-| `.meetings/README.md` | How the folder works |
-| `.claude/skills/` | `process-meeting`, `implement-req`, `req-check` |
+| `.meetings/README.md` | How the folder works, for people |
+| `.meetings/AGENTS.md` | How the folder works, for AI agents |
+| `.meetings/playbooks/` | Step-by-step instructions for each task |
+| `.claude/skills/` | The playbooks as Claude Code skills |
+| `.cursor/rules/meetings.mdc` | A Cursor rule pointing to `.meetings/AGENTS.md` |
 
-Both are added to `.git/info/exclude`, so git ignores them on this machine only. Running it again updates the templates, README and skills, and never touches your requirements, notes, transcripts or glossary.
+All of it is added to `.git/info/exclude`, so git ignores it on this machine only. Running it again updates the templates, playbooks, skills and rule, and never touches your requirements, notes, transcripts or glossary.
 
 ### `meetings transcribe <input>`
 
@@ -141,6 +143,7 @@ Output goes to `.meetings/transcripts/` inside a project, or `./transcripts/` el
 | `--compute-type` | `int8` on CPU | e.g. `float16` on GPU |
 | `--out` | | Output folder |
 | `--no-vad` | | Keep silent parts (try this if speech is missing) |
+| `--json` | | Print the result (file paths, line count, speakers) as JSON |
 
 ### `meetings status`
 
@@ -151,17 +154,36 @@ Scans the project for requirement IDs and writes `.meetings/STATUS.md`: every re
 - code written for a requirement that is still `proposed` or already `dropped`
 - approved work not yet confirmed by the client
 
-`--stdout` prints the report instead; `--check` exits with status 1 when there are errors. It checks that code is *linked*, not that it is *correct*. That is what `/req-check` is for.
+`--stdout` prints the report instead; `--json` prints it as JSON without writing anything; `--check` exits with status 1 when there are errors. It checks that code is *linked*, not that it is *correct*. That is what the `req-check` playbook is for.
 
-## Claude Code skills
+## AI agents
 
-| Skill | What it does |
+Everything an agent needs is in plain files, so any coding agent can do the work.
+
+| Playbook | What the agent does |
 | --- | --- |
-| `/process-meeting <transcript>` | Writes the meeting note, proposes new and changed requirements (each citing a transcript timestamp), lists open questions, and drafts a client confirmation email. It never approves anything itself. |
-| `/implement-req REQ-012` | Refuses unapproved requirements, plans the work against the acceptance criteria, builds on a branch, links code and tests to the ID, and reports each criterion as met or not. |
-| `/req-check` | Read-only review of whether the code really meets each requirement's acceptance criteria. Use it before a client update or release. |
+| `process-meeting` | Writes the meeting note, proposes new and changed requirements (each citing a transcript timestamp), lists open questions, and drafts a client confirmation email. It never approves anything itself. |
+| `implement-req` | Refuses unapproved requirements, plans the work against the acceptance criteria, builds on a branch, links code and tests to the ID, and reports each criterion as met or not. |
+| `req-check` | Read-only review of whether the code really meets each requirement's acceptance criteria. Use it before a client update or release. |
 
-Transcripts are machine-made. The skills treat names, numbers and dates as uncertain and turn anything unclear into a question for the client rather than a requirement.
+**How each agent finds them**
+
+| Agent | How |
+| --- | --- |
+| Claude Code | Installed as skills: `/process-meeting`, `/implement-req`, `/req-check`. |
+| Cursor | Installed rule `.cursor/rules/meetings.mdc` sends it to `.meetings/AGENTS.md` when you mention meetings, transcripts or requirements. |
+| Codex, Gemini CLI, Copilot, Aider, others | Tell it to follow `.meetings/AGENTS.md`. To make that automatic, add one line to your own instructions file (`AGENTS.md`, `GEMINI.md`, …): `For client meetings and REQ-### requirements, follow .meetings/AGENTS.md.` |
+| ChatGPT or Claude in the browser | Upload the transcript `.md` (or `.json`) together with the playbook `.md` you want it to follow. |
+
+**For tool builders**, the formats are stable and versioned:
+
+- Transcripts: `.meetings/transcripts/*.json` with `"schema": "ai-transcripter/transcript/v1"`, a `meta` block and `segments` of `{start, end, speaker, text}` (seconds from the start of the recording).
+- Status: `meetings status --json` with `"schema": "ai-transcripter/status/v1"`, a `summary`, every requirement with its code and test references, and `problems`.
+- CLI: progress goes to stderr, results to stdout. `meetings status --check` exits with 1 when there are errors.
+
+The full description an agent reads is in [`src/meetings/kit/AGENTS.md`](src/meetings/kit/AGENTS.md).
+
+Transcripts are machine-made. The playbooks treat names, numbers and dates as uncertain and turn anything unclear into a question for the client rather than a requirement.
 
 ## Requirement files
 

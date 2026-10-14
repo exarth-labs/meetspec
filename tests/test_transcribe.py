@@ -90,4 +90,7 @@ def test_write_outputs(tmp_path):
             "model": "tiny", "language": "en", "speakers": ["A"]}
     md, js = write_outputs([Segment(65, 70, "A", "Hello.")], tmp_path, "2026-10-13-call", meta)
     assert "**[00:01:05] A:** Hello." in md.read_text()
-    assert json.loads(js.read_text())["segments"][0]["text"] == "Hello."
+    assert "Speakers were not separated" in md.read_text()
+    data = json.loads(js.read_text())
+    assert data["schema"] == "ai-transcripter/transcript/v1"
+    assert data["segments"][0] == {"start": 65, "end": 70, "speaker": "A", "text": "Hello."}

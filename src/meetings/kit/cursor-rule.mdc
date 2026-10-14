@@ -1,0 +1,6 @@
+---
+description: Client meetings, transcripts and requirements (REQ-###) for this project live in .meetings/. Use when processing a meeting or transcript, implementing or checking a requirement, or asked about project status.
+alwaysApply: false
+---
+
+Read `.meetings/AGENTS.md` and follow the playbook it points to for the task. Never commit anything under `.meetings/`, and never mark a requirement approved, done or client-confirmed.

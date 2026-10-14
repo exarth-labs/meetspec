@@ -16,11 +16,13 @@ Usage:
   meetings status            # write .meetings/STATUS.md
   meetings status --check    # also exit 1 if there are errors
   meetings status --stdout   # print the report instead of writing it
+  meetings status --json     # print a machine-readable report for tools and AI agents (read-only)
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -207,30 +209,61 @@ def render(reqs: dict[str, Requirement], findings: list[Finding]) -> str:
     return "\n".join(lines)
 
 
+def to_json(reqs: dict[str, Requirement], findings: list[Finding], root: Path) -> dict:
+    errors = sum(1 for f in findings if f.level == "ERROR")
+    return {
+        "schema": "ai-transcripter/status/v1",
+        "summary": {
+            "requirements": len(reqs),
+            "by_status": {s: sum(1 for r in reqs.values() if r.status == s) for s in sorted(VALID_STATUSES)},
+            "errors": errors,
+            "warnings": len(findings) - errors,
+        },
+        "requirements": [
+            {
+                "id": r.id,
+                "title": r.title,
+                "status": r.status,
+                "client_confirmed": r.client_confirmed == "yes",
+                "file": r.path.relative_to(root).as_posix() if r.path.is_relative_to(root) else str(r.path),
+                "progress": progress(r),
+                "code_refs": r.code_refs,
+                "test_refs": r.test_refs,
+            }
+            for r in sorted(reqs.values(), key=lambda r: r.id)
+        ],
+        "problems": [{"level": f.level, "requirement": f.req, "message": f.message}
+                     for f in sorted(findings, key=lambda f: (f.level != "ERROR", f.req))],
+    }
+
+
 def main(argv: list[str] | None = None, prog: str | None = None) -> None:
     parser = argparse.ArgumentParser(prog=prog, description="Check requirements against code.")
     parser.add_argument("--root", type=Path, default=None,
                         help="project root to scan (default: the folder that contains .meetings)")
     parser.add_argument("--check", action="store_true", help="exit 1 when there are errors")
     parser.add_argument("--stdout", action="store_true", help="print the report instead of writing .meetings/STATUS.md")
+    parser.add_argument("--json", action="store_true",
+                        help="print a JSON report to stdout instead (read-only; for tools and AI agents)")
     args = parser.parse_args(argv)
 
     base = require_base()
     root = args.root.resolve() if args.root else base.parent
     reqs, findings = load_requirements(base / "requirements")
     findings += evaluate(reqs, scan_code(root, base))
-    report = render(reqs, findings)
-
-    if args.stdout:
-        print(report)
-    else:
-        out = base / "STATUS.md"
-        out.write_text(report, encoding="utf-8")
-        print(f"Wrote {out}")
-
     errors = sum(1 for f in findings if f.level == "ERROR")
     warns = len(findings) - errors
-    print(f"{len(reqs)} requirements, {errors} errors, {warns} warnings")
+
+    if args.json:
+        print(json.dumps(to_json(reqs, findings, root), indent=2, ensure_ascii=False))
+    elif args.stdout:
+        print(render(reqs, findings))
+        print(f"{len(reqs)} requirements, {errors} errors, {warns} warnings", file=sys.stderr)
+    else:
+        out = base / "STATUS.md"
+        out.write_text(render(reqs, findings), encoding="utf-8")
+        print(f"Wrote {out}")
+        print(f"{len(reqs)} requirements, {errors} errors, {warns} warnings")
     if args.check and errors:
         sys.exit(1)
 

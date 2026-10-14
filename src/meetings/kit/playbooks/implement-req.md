@@ -9,7 +9,7 @@ Input: one REQ ID, e.g. `REQ-012`.
 
 Requirements live in `.meetings/requirements/` at the project root. `.meetings/` is kept out of git on purpose: never `git add` anything under it.
 
-1. **Read** `.meetings/requirements/REQ-012-*.md`, the project's `CLAUDE.md` / `AGENTS.md`, and any meeting note in its `source:`.
+1. **Read** `.meetings/requirements/REQ-012-*.md`, the project's agent instructions (`AGENTS.md`, `CLAUDE.md` or similar), and any meeting note in its `source:`.
 2. **Check it is ready.**
    - `status` must be `approved` or `in-progress`. If it is `proposed`, `done` or `dropped`, stop and say why.
    - If `client_confirmed` is not `yes`, warn the user and ask whether to continue.

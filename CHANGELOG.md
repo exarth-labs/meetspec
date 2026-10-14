@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Works with any AI coding agent: `meetings install` now adds `.meetings/AGENTS.md`, agent-neutral playbooks in `.meetings/playbooks/`, and a Cursor rule, alongside the Claude Code skills.
+- `meetings status --json` and `meetings transcribe --json` for tools and agents; progress goes to stderr, results to stdout.
+- Transcript JSON carries `"schema": "ai-transcripter/transcript/v1"`.
+- Transcripts note when speakers were not separated.
+
 ### Fixed
 
 - Transcription crashed with `av` 19 (`unexpected keyword argument 'metadata_errors'`); `av` is now pinned below 19.

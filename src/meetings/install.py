@@ -1,12 +1,17 @@
 """
 Install (or update) the meetings kit into a project, kept out of its git.
 
-Creates <project>/.meetings/ (templates, glossary, README and empty folders) and copies the
-skills to <project>/.claude/skills/, then adds both to the repo's .git/info/exclude
-(like .gitignore, but only on this machine; the project's .gitignore is not touched).
+Creates <project>/.meetings/ with AGENTS.md, the task playbooks, templates, glossary, README
+and empty folders, then makes the playbooks discoverable by coding agents:
+  .claude/skills/<name>/SKILL.md   Claude Code skills (/process-meeting, ...)
+  .cursor/rules/meetings.mdc       Cursor rule pointing to .meetings/AGENTS.md
+Other agents (Codex, Gemini CLI, Copilot, ...) read .meetings/AGENTS.md when pointed to it.
 
-Safe to run again to update: templates, README and skills are replaced;
-requirements, meeting notes, transcripts, glossary and STATUS.md are never touched.
+Everything installed is added to the repo's .git/info/exclude (like .gitignore, but only on
+this machine; the project's .gitignore is not touched).
+
+Safe to run again to update: AGENTS.md, playbooks, templates, README, skills and the rule are
+replaced; requirements, meeting notes, transcripts, glossary and STATUS.md are never touched.
 """
 
 from __future__ import annotations
@@ -20,7 +25,8 @@ from pathlib import Path
 
 from .project import DIR_NAME
 
-SKILLS = ("process-meeting", "implement-req", "req-check")
+PLAYBOOKS = ("process-meeting", "implement-req", "req-check")
+CURSOR_RULE = ".cursor/rules/meetings.mdc"
 
 
 def git(project: Path, *args: str) -> str:
@@ -55,30 +61,37 @@ def install(project: Path) -> None:
     skills_dir = project / ".claude" / "skills"
 
     with as_file(files("meetings") / "kit") as kit:
-        for sub in ("requirements", "meetings", "transcripts"):
+        for sub in ("requirements", "meetings", "transcripts", "playbooks"):
             (base / sub).mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(kit / "requirements" / "_template.md", base / "requirements" / "_template.md")
-        shutil.copyfile(kit / "meetings" / "_template.md", base / "meetings" / "_template.md")
-        shutil.copyfile(kit / "README.md", base / "README.md")
+        for rel in ("AGENTS.md", "README.md", "requirements/_template.md", "meetings/_template.md"):
+            shutil.copyfile(kit / rel, base / rel)
         if not (base / "glossary.md").exists():
             shutil.copyfile(kit / "glossary.md", base / "glossary.md")
 
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        for name in SKILLS:
-            shutil.rmtree(skills_dir / name, ignore_errors=True)
-            shutil.copytree(kit / "skills" / name, skills_dir / name)
+        for name in PLAYBOOKS:
+            shutil.copyfile(kit / "playbooks" / f"{name}.md", base / "playbooks" / f"{name}.md")
+            skill = skills_dir / name
+            shutil.rmtree(skill, ignore_errors=True)
+            skill.mkdir(parents=True)
+            shutil.copyfile(kit / "playbooks" / f"{name}.md", skill / "SKILL.md")
 
-    exclude = add_excludes(project, [f"{DIR_NAME}/", *(f".claude/skills/{name}/" for name in SKILLS)])
+        rule = project / CURSOR_RULE
+        rule.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(kit / "cursor-rule.mdc", rule)
+
+    ours = [f"{DIR_NAME}/", *(f".claude/skills/{name}/" for name in PLAYBOOKS), CURSOR_RULE]
+    exclude = add_excludes(project, ours)
 
     print(f"Installed into {project}")
-    print(f"  {DIR_NAME}/         templates, glossary, your requirements and notes")
-    print(f"  .claude/skills/   {', '.join(SKILLS)}")
+    print(f"  {DIR_NAME}/              AGENTS.md, playbooks, templates, glossary; your requirements and notes")
+    print(f"  .claude/skills/        {', '.join(PLAYBOOKS)} (Claude Code)")
+    print(f"  {CURSOR_RULE}  (Cursor)")
+    print(f"  other agents: tell them to follow {DIR_NAME}/AGENTS.md")
     print(f"  kept out of git via {exclude}")
     if (base / "scripts").is_dir():
         print(f"  note: {DIR_NAME}/scripts/ is from the old kit and no longer used; you can delete it "
               f"(and {DIR_NAME}/.venv/ if present).")
-    leaked = git(project, "status", "--porcelain", "--", DIR_NAME, ".claude/skills")
-    if any(name in leaked for name in (DIR_NAME, *SKILLS)):
+    if git(project, "status", "--porcelain", "--untracked-files=all", "--", *ours):
         print(f"WARNING: git still sees some of these files. Check `git -C \"{project}\" status`.", file=sys.stderr)
 
 

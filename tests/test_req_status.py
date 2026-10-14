@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -77,3 +78,22 @@ def test_status_needs_meetings_folder(git_repo):
     with pytest.raises(SystemExit) as exc:
         req_status.main([])
     assert "meetings install" in str(exc.value.code)
+
+
+def test_status_json_is_read_only_and_parseable(git_repo, capsys):
+    base = git_repo / ".meetings"
+    write_req(base, "REQ-001", "approved", "no")
+    (git_repo / "app.py").write_text("# REQ-001\n")
+
+    req_status.main(["--json"])
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["schema"] == "ai-transcripter/status/v1"
+    assert data["summary"]["by_status"]["approved"] == 1
+    req = data["requirements"][0]
+    assert req["id"] == "REQ-001" and req["client_confirmed"] is False
+    assert req["file"] == ".meetings/requirements/REQ-001-thing.md"
+    assert req["code_refs"] == ["app.py:1"]
+    assert data["problems"] == [{"level": "WARN", "requirement": "REQ-001",
+                                 "message": "not confirmed by the client yet"}]
+    assert not (base / "STATUS.md").exists()
