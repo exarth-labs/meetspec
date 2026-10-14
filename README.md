@@ -1,13 +1,13 @@
-# ai-transcripter
+# meetspec
 
-[![CI](https://github.com/exarth-labs/ai-transcripter/actions/workflows/ci.yml/badge.svg)](https://github.com/exarth-labs/ai-transcripter/actions/workflows/ci.yml)
+[![CI](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml/badge.svg)](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![macOS | Windows | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
 Turn client calls into requirements you can build against, without the audio ever leaving your machine.
 
-`ai-transcripter` transcribes meeting recordings (Zoom, Google Meet, Microsoft Teams, Webex, or any audio/video file) locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
+`meetspec` transcribes meeting recordings (Zoom, Google Meet, Microsoft Teams, Webex, or any audio/video file) locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper), then hands the transcript to your AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) with playbooks to write meeting notes, propose requirements, draft a confirmation email for the client, implement approved requirements, and check that the code actually does what was agreed.
 
 ```text
 Recording ──► meetings transcribe ──► /process-meeting ──► you review, client confirms
@@ -62,10 +62,10 @@ Windows (PowerShell):
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 2. Install ai-transcripter
+### 2. Install meetspec
 
 ```bash
-uv tool install git+https://github.com/exarth-labs/ai-transcripter
+uv tool install git+https://github.com/exarth-labs/meetspec
 ```
 
 This adds the `meetings` command. Check it with `meetings --version`.
@@ -75,14 +75,14 @@ This adds the `meetings` command. Check it with `meetings --version`.
 To get the latest version:
 
 ```bash
-uv tool upgrade ai-transcripter
+uv tool upgrade meetspec
 ```
 
 Then run `meetings install` again in each project to refresh its playbooks, skills and templates.
 
 ### Uninstall
 
-`uv tool uninstall ai-transcripter`. Downloaded models stay in the Hugging Face cache (`~/.cache/huggingface/hub`); delete them there if you want the space back.
+`uv tool uninstall meetspec`. Downloaded models stay in the Hugging Face cache (`~/.cache/huggingface/hub`); delete them there if you want the space back.
 
 ## Quick start
 
@@ -179,8 +179,8 @@ Everything an agent needs is in plain files, so any coding agent can do the work
 
 **For tool builders**, the formats are stable and versioned:
 
-- Transcripts: `.meetings/transcripts/*.json` with `"schema": "ai-transcripter/transcript/v1"`, a `meta` block and `segments` of `{start, end, speaker, text}` (seconds from the start of the recording).
-- Status: `meetings status --json` with `"schema": "ai-transcripter/status/v1"`, a `summary`, every requirement with its code and test references, and `problems`.
+- Transcripts: `.meetings/transcripts/*.json` with `"schema": "meetspec/transcript/v1"`, a `meta` block and `segments` of `{start, end, speaker, text}` (seconds from the start of the recording).
+- Status: `meetings status --json` with `"schema": "meetspec/status/v1"`, a `summary`, every requirement with its code and test references, and `problems`.
 - CLI: progress goes to stderr, results to stdout. `meetings status --check` exits with 1 when there are errors.
 
 The full description an agent reads is in [`src/meetings/kit/AGENTS.md`](src/meetings/kit/AGENTS.md).

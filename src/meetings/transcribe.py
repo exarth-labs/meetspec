@@ -42,7 +42,7 @@ from .project import find_base
 AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus", ".webm", ".mp4", ".mkv", ".mov"}
 AUDIO_ONLY_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus"}
 MERGE_GAP_SECONDS = 1.5
-TRANSCRIPT_SCHEMA = "ai-transcripter/transcript/v1"
+TRANSCRIPT_SCHEMA = "meetspec/transcript/v1"
 
 
 @dataclass

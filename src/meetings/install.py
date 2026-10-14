@@ -50,7 +50,7 @@ def add_excludes(project: Path, lines: list[str]) -> Path:
         with exclude.open("a", encoding="utf-8") as fh:
             if existing and existing[-1].strip():
                 fh.write("\n")
-            fh.write("# ai-transcripter (local only)\n")
+            fh.write("# meetspec (local only)\n")
             fh.write("".join(f"{line}\n" for line in missing))
     return exclude
 

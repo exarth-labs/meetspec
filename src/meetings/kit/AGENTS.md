@@ -1,6 +1,6 @@
 # Instructions for AI agents
 
-This `.meetings/` folder holds client meeting transcripts, meeting notes and requirements for the project one level up. It was created by [ai-transcripter](https://github.com/exarth-labs/ai-transcripter). Any coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) can follow these instructions.
+This `.meetings/` folder holds client meeting transcripts, meeting notes and requirements for the project one level up. It was created by [meetspec](https://github.com/exarth-labs/meetspec). Any coding agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, …) can follow these instructions.
 
 ## Hard rules
 
@@ -40,7 +40,7 @@ Each task has a step-by-step playbook. Read it fully before starting.
 
 ```json
 {
-  "schema": "ai-transcripter/transcript/v1",
+  "schema": "meetspec/transcript/v1",
   "meta": {
     "source_name": "2026-10-13 18.19.15 Kickoff",
     "transcribed_at": "2026-10-14T10:00:00",
@@ -82,7 +82,7 @@ Link code to a requirement by putting its ID in a comment at the feature's entry
 
 ## Commands
 
-The `meetings` command may be installed (`uv tool install git+https://github.com/exarth-labs/ai-transcripter`). Run it from anywhere inside the project. Progress goes to stderr; results go to stdout.
+The `meetings` command may be installed (`uv tool install git+https://github.com/exarth-labs/meetspec`). Run it from anywhere inside the project. Progress goes to stderr; results go to stdout.
 
 | Command | Use |
 | --- | --- |

@@ -7,8 +7,8 @@ Thanks for helping. Bug reports, fixes and improvements to the skills are all we
 You need [uv](https://docs.astral.sh/uv/) and git.
 
 ```bash
-git clone https://github.com/exarth-labs/ai-transcripter
-cd ai-transcripter
+git clone https://github.com/exarth-labs/meetspec
+cd meetspec
 uv sync
 uv run pytest
 ```
@@ -41,7 +41,7 @@ tests/
 - Keep `meetings status` dependency-free beyond the standard library.
 - Add or update tests for behaviour changes. Tests must not download models; keep model work behind functions that tests do not call.
 - Playbooks in `src/meetings/kit/playbooks/` are instructions for AI agents. Keep them agent-neutral, short, specific and testable, and never let them approve requirements or commit `.meetings/` files. Their frontmatter (`name`, `description`) is what Claude Code uses to pick the skill.
-- The JSON formats (`ai-transcripter/transcript/v1`, `ai-transcripter/status/v1`) are a public interface. Adding fields is fine; renaming or removing one needs a new version.
+- The JSON formats (`meetspec/transcript/v1`, `meetspec/status/v1`) are a public interface. Adding fields is fine; renaming or removing one needs a new version.
 - Never put real client names, recordings or transcripts in issues, tests or examples.
 - Update `CHANGELOG.md` under "Unreleased".
 

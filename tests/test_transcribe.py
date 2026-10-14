@@ -134,5 +134,5 @@ def test_write_outputs(tmp_path):
     assert "**[00:01:05] A:** Hello." in md.read_text()
     assert "Speakers were not separated" in md.read_text()
     data = json.loads(js.read_text())
-    assert data["schema"] == "ai-transcripter/transcript/v1"
+    assert data["schema"] == "meetspec/transcript/v1"
     assert data["segments"][0] == {"start": 65, "end": 70, "speaker": "A", "text": "Hello."}

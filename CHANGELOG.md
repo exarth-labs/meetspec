@@ -4,11 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed to **meetspec** (was ai-transcripter). Install with `uv tool install git+https://github.com/exarth-labs/meetspec`; if you installed the old name, run `uv tool uninstall ai-transcripter` first. The command is still `meetings`.
+
 ### Added
 
 - Works with any AI coding agent: `meetings install` now adds `.meetings/AGENTS.md`, agent-neutral playbooks in `.meetings/playbooks/`, and a Cursor rule, alongside the Claude Code skills.
 - `meetings status --json` and `meetings transcribe --json` for tools and agents; progress goes to stderr, results to stdout.
-- Transcript JSON carries `"schema": "ai-transcripter/transcript/v1"`.
+- Transcript JSON carries `"schema": "meetspec/transcript/v1"`.
 - Transcripts note when speakers were not separated.
 - Not just Zoom: meeting dates are read from Google Meet and Microsoft Teams recording names too, and `--per-speaker` transcribes any folder of per-person tracks (Riverside, Zencastr, Craig for Discord, …).
 
@@ -27,5 +31,5 @@ All notable changes to this project are documented here. The format follows [Kee
 - `meetings status` reports requirements against the code that references them.
 - Claude Code skills: `/process-meeting`, `/implement-req`, `/req-check`.
 
-[Unreleased]: https://github.com/exarth-labs/ai-transcripter/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/exarth-labs/ai-transcripter/releases/tag/v0.1.0
+[Unreleased]: https://github.com/exarth-labs/meetspec/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/exarth-labs/meetspec/releases/tag/v0.1.0

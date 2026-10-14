@@ -1,6 +1,6 @@
 # .meetings
 
-This folder holds client meeting transcripts, notes and requirements for this project. It was created by [ai-transcripter](https://github.com/exarth-labs/ai-transcripter) and is kept out of git through `.git/info/exclude`, so it exists only on this machine. Back it up yourself if it matters.
+This folder holds client meeting transcripts, notes and requirements for this project. It was created by [meetspec](https://github.com/exarth-labs/meetspec) and is kept out of git through `.git/info/exclude`, so it exists only on this machine. Back it up yourself if it matters.
 
 ```text
 .meetings/

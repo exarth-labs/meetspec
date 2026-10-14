@@ -25,7 +25,7 @@ def test_transcribes_a_zoom_folder(git_repo, tmp_path, capsys):
     result = json.loads(capsys.readouterr().out)  # stdout holds only the JSON result
     assert result["mode"] == "single" and result["lines"] >= 1
     data = json.loads(Path(result["transcript_json"]).read_text())
-    assert data["schema"] == "ai-transcripter/transcript/v1"
+    assert data["schema"] == "meetspec/transcript/v1"
     text = " ".join(s["text"] for s in data["segments"]).lower()
     assert "invoice" in text and "friday" in text
     assert data["meta"]["mode"] == "single"

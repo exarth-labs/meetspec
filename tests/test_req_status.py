@@ -88,7 +88,7 @@ def test_status_json_is_read_only_and_parseable(git_repo, capsys):
     req_status.main(["--json"])
 
     data = json.loads(capsys.readouterr().out)
-    assert data["schema"] == "ai-transcripter/status/v1"
+    assert data["schema"] == "meetspec/status/v1"
     assert data["summary"]["by_status"]["approved"] == 1
     req = data["requirements"][0]
     assert req["id"] == "REQ-001" and req["client_confirmed"] is False

@@ -212,7 +212,7 @@ def render(reqs: dict[str, Requirement], findings: list[Finding]) -> str:
 def to_json(reqs: dict[str, Requirement], findings: list[Finding], root: Path) -> dict:
     errors = sum(1 for f in findings if f.level == "ERROR")
     return {
-        "schema": "ai-transcripter/status/v1",
+        "schema": "meetspec/status/v1",
         "summary": {
             "requirements": len(reqs),
             "by_status": {s: sum(1 for r in reqs.values() if r.status == s) for s in sorted(VALID_STATUSES)},
