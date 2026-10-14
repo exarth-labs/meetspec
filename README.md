@@ -1,7 +1,7 @@
 # meetspec
 
 [![CI](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml/badge.svg)](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/exarth-labs/meetspec/blob/main/LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![macOS | Windows | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
@@ -191,7 +191,7 @@ Everything an agent needs is in plain files, so any coding agent can do the work
 - Status: `meetings status --json` with `"schema": "meetspec/status/v1"`, a `summary`, every requirement with its code and test references, and `problems`.
 - CLI: progress goes to stderr, results to stdout. `meetings status --check` exits with 1 when there are errors.
 
-The full description an agent reads is in [`src/meetings/kit/AGENTS.md`](src/meetings/kit/AGENTS.md).
+The full description an agent reads is in [`src/meetings/kit/AGENTS.md`](https://github.com/exarth-labs/meetspec/blob/main/src/meetings/kit/AGENTS.md).
 
 Transcripts are machine-made. The playbooks treat names, numbers and dates as uncertain and turn anything unclear into a question for the client rather than a requirement.
 
@@ -265,7 +265,7 @@ If the track names are not people's names, map them with `--speakers names.json`
 - `.meetings/` is excluded from git, so transcripts and notes are never committed by accident. That also means **they are not backed up**. Back the folder up yourself if you need to.
 - Recording laws differ by country and state, and some require everyone's consent. Ask at the start of every call.
 
-See [SECURITY.md](SECURITY.md) to report a vulnerability.
+See [SECURITY.md](https://github.com/exarth-labs/meetspec/blob/main/SECURITY.md) to report a vulnerability.
 
 ## Troubleshooting
 
@@ -287,8 +287,8 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Contributing
 
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](https://github.com/exarth-labs/meetspec/blob/main/CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/exarth-labs/meetspec/blob/main/LICENSE)
