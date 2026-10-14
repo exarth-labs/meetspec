@@ -48,7 +48,7 @@ The transcript is machine-made from audio. Names, numbers, dates and technical w
    - Then "Please confirm or correct" → the open questions, each a direct yes/no or short-answer question.
    - Do not send it. A human reviews and sends it.
 
-7. **Run** `meetings status` to refresh `.meetings/STATUS.md`. If it reports errors in files you wrote, fix them. If the `meetings` command is not found, tell the user to install it (`uv tool install git+https://github.com/exarth-labs/meetspec`) and continue without it.
+7. **Run** `meetings status` to refresh `.meetings/STATUS.md`. If it reports errors in files you wrote, fix them. If the `meetings` command is not found, tell the user to install it (`uv tool install meetspec`) and continue without it.
 
 8. **Reply to the user**, short: number of new requirements, changed requirements, open questions, the files written, and anything that looked misheard.
 

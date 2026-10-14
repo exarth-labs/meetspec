@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml/badge.svg)](https://github.com/exarth-labs/meetspec/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/exarth-labs/meetspec/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/meetspec.svg)](https://pypi.org/project/meetspec/)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![macOS | Windows | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
@@ -65,12 +66,12 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ### 2. Install meetspec
 
 ```bash
-uv tool install git+https://github.com/exarth-labs/meetspec
+uv tool install meetspec
 ```
 
 This adds the `meetings` command. Check it with `meetings --version`.
 
-To install a specific release instead of the latest code, add the tag: `uv tool install git+https://github.com/exarth-labs/meetspec@v0.1.0`. Releases are listed on the [releases page](https://github.com/exarth-labs/meetspec/releases).
+It is on [PyPI](https://pypi.org/project/meetspec/), so `pipx install meetspec` or `pip install meetspec` work too. To try the latest unreleased code: `uv tool install git+https://github.com/exarth-labs/meetspec`. Releases are listed on the [releases page](https://github.com/exarth-labs/meetspec/releases).
 
 ### Update
 

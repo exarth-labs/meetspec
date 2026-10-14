@@ -1,6 +1,6 @@
 [project]
 name = "meetspec"
-version = "0.1.0"
+version = "0.1.1"
 description = "Transcribe client calls locally, turn them into requirements, and check code against them."
 readme = "README.md"
 license = "MIT"

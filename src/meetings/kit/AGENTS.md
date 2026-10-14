@@ -83,7 +83,7 @@ Link code to a requirement by putting its ID in a comment at the feature's entry
 
 ## Commands
 
-The `meetings` command may be installed (`uv tool install git+https://github.com/exarth-labs/meetspec`). Run it from anywhere inside the project. Progress goes to stderr; results go to stdout.
+The `meetings` command may be installed (`uv tool install meetspec`). Run it from anywhere inside the project. Progress goes to stderr; results go to stdout.
 
 | Command | Use |
 | --- | --- |

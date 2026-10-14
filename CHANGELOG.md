@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
+### Changed
+
+- Published on PyPI: install with `uv tool install meetspec` (or `pipx install meetspec`).
+- The kit's `AGENTS.md` and the `process-meeting` playbook use the shorter install command.
+- README links work on the PyPI page.
+
 ## [0.1.0] - 2026-10-14
 
 First public version.
@@ -22,5 +30,6 @@ First public version.
 - `meetings status` reports requirements against the code and tests that reference them, as `STATUS.md` or JSON (`meetspec/status/v1`).
 - Playbooks for any AI coding agent: `process-meeting`, `implement-req`, `req-check`.
 
-[Unreleased]: https://github.com/exarth-labs/meetspec/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/exarth-labs/meetspec/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/exarth-labs/meetspec/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/exarth-labs/meetspec/releases/tag/v0.1.0
