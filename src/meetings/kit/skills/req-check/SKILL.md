@@ -13,7 +13,7 @@ This is a read-only check. Do not change any code or requirement files.
 
 ## Steps
 
-1. Run `meetings status --stdout` and read the result.
+1. Run `meetings status --stdout` and read the result. If the `meetings` command is not found, search the code for each REQ ID yourself and mention that the tool is not installed.
 2. Pick the requirements to check:
    - If the user named IDs, check those.
    - Otherwise check every requirement with status `in-progress` or `done`, plus any with errors in the report.

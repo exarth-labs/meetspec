@@ -24,7 +24,7 @@ def main() -> None:
         print(USAGE)
         return
     if args[0] in {"-V", "--version"}:
-        print(f"meetings {version('exarth-meetings')}")
+        print(f"meetings {version('ai-transcripter')}")
         return
 
     command, rest = args[0], args[1:]

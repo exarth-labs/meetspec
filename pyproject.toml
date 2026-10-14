@@ -1,12 +1,32 @@
 [project]
-name = "exarth-meetings"
+name = "ai-transcripter"
 version = "0.1.0"
 description = "Transcribe client calls locally, turn them into requirements, and check code against them."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Exarth Labs" }]
 requires-python = ">=3.10,<3.14"
+keywords = ["transcription", "whisper", "zoom", "requirements", "claude-code", "meetings"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development",
+]
 dependencies = [
     "faster-whisper>=1.1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/exarth-labs/ai-transcripter"
+Issues = "https://github.com/exarth-labs/ai-transcripter/issues"
+Changelog = "https://github.com/exarth-labs/ai-transcripter/blob/main/CHANGELOG.md"
 
 [project.scripts]
 meetings = "meetings.cli:main"
