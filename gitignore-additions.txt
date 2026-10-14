@@ -1,0 +1,5 @@
+# Exarth meeting system — add these lines to the repo's .gitignore
+# Transcripts and recordings contain confidential client conversation. Keep them local.
+transcripts/
+*.m4a
+*.mp4
