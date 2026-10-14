@@ -1,8 +1,8 @@
 # Meeting: <title>
 
 - **Date:** YYYY-MM-DD
-- **Attendees:** Client: … · Exarth: …
-- **Transcript:** `transcripts/<file>` (kept locally, not in git)
+- **Attendees:** Client: … · Team: …
+- **Transcript:** `.meetings/transcripts/<file>` (kept locally, not in git)
 - **Recording consent:** given at [hh:mm:ss] / not recorded
 
 ## Summary

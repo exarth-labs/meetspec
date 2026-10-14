@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """
-Local meeting transcription for Zoom recordings (Exarth meeting system).
+Local meeting transcription for Zoom recordings.
 
 Everything runs on your own machine: audio never leaves it.
 
@@ -10,15 +9,15 @@ Two input modes:
      Each file is one speaker, so speakers are labelled by name with no guessing.
   2. A single audio/video file. Speakers are not separated; all lines get one label.
 
-Output (in --out, default ./transcripts):
+Output (in --out; default .meetings/transcripts in the project, or ./transcripts outside one):
   <name>.md    readable transcript with timestamps and speakers
   <name>.json  same data, machine-readable (used by the /process-meeting skill)
 
 Examples:
-  python scripts/transcribe.py "~/Documents/Zoom/2026-10-14 15.00.00 Acme kickoff"
-  python scripts/transcribe.py meeting.m4a --model distil-large-v3
-  python scripts/transcribe.py <folder> --prompt "Exarth, Next.js, Stripe, HIPAA, Acme"
-  python scripts/transcribe.py <folder> --speakers speakers.json
+  meetings transcribe "~/Documents/Zoom/2026-10-14 15.00.00 Acme kickoff"
+  meetings transcribe meeting.m4a --model distil-large-v3 --compute-type int8
+  meetings transcribe <folder> --prompt "Acme, Next.js, Stripe, HIPAA"
+  meetings transcribe <folder> --speakers speakers.json
 """
 
 from __future__ import annotations
@@ -30,6 +29,8 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+
+from .project import find_base
 
 AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus", ".webm", ".mp4", ".mkv", ".mov"}
 AUDIO_ONLY_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".opus"}
@@ -63,6 +64,18 @@ def is_audio(path: Path) -> bool:
 
 def find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
     """Return ([(file, speaker_or_None)], mode)."""
+    try:
+        return _find_inputs(input_path)
+    except PermissionError:
+        hint = ""
+        if sys.platform == "darwin":
+            hint = ("\nmacOS blocks terminal apps from Documents, Desktop and Downloads until you allow it: "
+                    "System Settings > Privacy & Security > Files and Folders > your terminal app. "
+                    "Quit and reopen the app afterwards, or copy the recording somewhere else.")
+        sys.exit(f"Permission denied reading {input_path}{hint}")
+
+
+def _find_inputs(input_path: Path) -> tuple[list[tuple[Path, str | None]], str]:
     if input_path.is_file():
         if not is_audio(input_path):
             sys.exit(f"Not a supported audio/video file: {input_path}")
@@ -102,9 +115,39 @@ def load_speaker_map(path: Path | None) -> dict[str, str]:
 
 # ---------------------------------------------------------------- transcription
 
+MODEL_FILES = ["config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*"]
+
+
+def model_path(name: str) -> str:
+    """Return a local folder for the model, downloading it once with a progress bar.
+
+    faster-whisper hides download progress, so the download is done here instead.
+    Models are cached by Hugging Face (~/.cache/huggingface) and shared by every project."""
+    if Path(name).expanduser().is_dir():
+        return str(Path(name).expanduser())
+    from faster_whisper.utils import available_models, download_model
+
+    try:
+        return download_model(name, local_files_only=True)
+    except ValueError:
+        sys.exit(f"Unknown model '{name}'. Use one of: {', '.join(available_models())}, "
+                 "or a Hugging Face repo id like Systran/faster-whisper-small.")
+    except Exception:  # not in the cache yet
+        pass
+
+    import huggingface_hub
+    from faster_whisper import utils
+
+    repo_id = name if "/" in name else utils._MODELS[name]
+    print(f"Downloading model '{name}' from {repo_id} (one time, cached for later runs)...", flush=True)
+    return huggingface_hub.snapshot_download(repo_id, allow_patterns=MODEL_FILES)
+
+
 def transcribe_file(model, path: Path, speaker: str, language: str | None,
                     prompt: str | None, vad: bool) -> list[Segment]:
-    segments, _info = model.transcribe(
+    from tqdm import tqdm
+
+    segments, info = model.transcribe(
         str(path),
         language=language,
         initial_prompt=prompt,
@@ -112,10 +155,20 @@ def transcribe_file(model, path: Path, speaker: str, language: str | None,
         beam_size=5,
     )
     out: list[Segment] = []
-    for s in segments:
-        text = s.text.strip()
-        if text:
-            out.append(Segment(start=float(s.start), end=float(s.end), speaker=speaker, text=text))
+    total = max(1, round(info.duration))
+    with tqdm(total=total, desc=f"{fmt_ts(0)} / {fmt_ts(total)}", dynamic_ncols=True,
+              bar_format="  {desc} {percentage:3.0f}%|{bar}| elapsed {elapsed}, left {remaining}") as bar:
+        def advance(to: int) -> None:
+            bar.set_description_str(f"{fmt_ts(to)} / {fmt_ts(total)}", refresh=False)
+            bar.update(to - bar.n)
+
+        advance(0)
+        for s in segments:
+            advance(min(total, round(s.end)))
+            text = s.text.strip()
+            if text:
+                out.append(Segment(start=float(s.start), end=float(s.end), speaker=speaker, text=text))
+        advance(total)
     return out
 
 
@@ -184,15 +237,16 @@ def write_outputs(segments: list[Segment], out_dir: Path, name: str, meta: dict)
 
 # ---------------------------------------------------------------- main
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Transcribe a Zoom meeting locally with faster-whisper.")
+def main(argv: list[str] | None = None, prog: str | None = None) -> None:
+    parser = argparse.ArgumentParser(prog=prog, description="Transcribe a Zoom meeting locally with faster-whisper.")
     parser.add_argument("input", type=Path, help="Zoom recording folder or a single audio/video file")
-    parser.add_argument("--out", type=Path, default=Path("transcripts"), help="output folder (default: ./transcripts)")
+    parser.add_argument("--out", type=Path, default=None,
+                        help="output folder (default: .meetings/transcripts in a project, else ./transcripts)")
     parser.add_argument("--model", default="large-v3",
                         help="whisper model: large-v3 (best), distil-large-v3 (faster, English), medium, small")
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
-    parser.add_argument("--compute-type", default="default",
-                        help="e.g. int8 for CPU, float16 for GPU (default: chosen automatically)")
+    parser.add_argument("--compute-type", default=None,
+                        help="e.g. int8, float16, float32 (default: int8 on CPU, the model's own type on GPU)")
     parser.add_argument("--language", default="en", help="language code, or 'auto' to detect (default: en)")
     parser.add_argument("--prompt", default=None,
                         help="names and technical words used in the meeting; improves spelling of them")
@@ -200,26 +254,32 @@ def main() -> None:
                         help='JSON map from detected name to label, e.g. {"John Smith": "Client - John"}')
     parser.add_argument("--label", default="Speaker", help="speaker label in single-file mode")
     parser.add_argument("--no-vad", action="store_true", help="disable silence filtering")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    base = find_base()
+    out_dir = args.out.expanduser() if args.out else (base / "transcripts" if base else Path("transcripts"))
 
     input_path = args.input.expanduser().resolve()
     inputs, mode = find_inputs(input_path)
     speaker_map = load_speaker_map(args.speakers.expanduser() if args.speakers else None)
     language = None if args.language == "auto" else args.language
 
-    try:
-        from faster_whisper import WhisperModel
-    except ImportError:
-        sys.exit("faster-whisper is not installed. Run: pip install -r scripts/requirements.txt")
+    import ctranslate2
+    from faster_whisper import WhisperModel
 
-    print(f"Loading model '{args.model}' (first run downloads it once)...", flush=True)
-    model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
+    compute_type = args.compute_type
+    if compute_type is None:
+        on_cpu = args.device == "cpu" or (args.device == "auto" and ctranslate2.get_cuda_device_count() == 0)
+        compute_type = "int8" if on_cpu else "default"
+
+    path = model_path(args.model)
+    print(f"Loading model '{args.model}'...", flush=True)
+    model = WhisperModel(path, device=args.device, compute_type=compute_type)
 
     all_segments: list[Segment] = []
     for path, detected in inputs:
         raw_name = detected or args.label
         speaker = speaker_map.get(raw_name, raw_name)
-        print(f"Transcribing {path.name} as '{speaker}'...", flush=True)
+        print(f"Transcribing {path.name} as '{speaker}'", flush=True)
         all_segments.extend(transcribe_file(model, path, speaker, language, args.prompt, not args.no_vad))
 
     if not all_segments:
@@ -234,13 +294,11 @@ def main() -> None:
         "transcribed_at": datetime.now().isoformat(timespec="seconds"),
         "mode": mode,
         "model": args.model,
+        "compute_type": compute_type,
         "language": language,
         "speakers": sorted({s.speaker for s in segments}),
         "files": [p.name for p, _ in inputs],
     }
-    md_path, json_path = write_outputs(segments, args.out.expanduser(), name, meta)
+    md_path, json_path = write_outputs(segments, out_dir, name, meta)
     print(f"Done. {len(segments)} lines.\n  {md_path}\n  {json_path}")
 
-
-if __name__ == "__main__":
-    main()
