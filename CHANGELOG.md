@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Transcription crashed with `av` 19 (`unexpected keyword argument 'metadata_errors'`); `av` is now pinned below 19.
+- Python 3.14 is supported.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added

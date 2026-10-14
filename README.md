@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/exarth-labs/ai-transcripter/actions/workflows/ci.yml/badge.svg)](https://github.com/exarth-labs/ai-transcripter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![macOS | Windows | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
 Turn client calls into requirements you can build against, without the audio ever leaving your machine.

@@ -16,14 +16,16 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.10", "3.13"]
+        python: ["3.10", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Run tests
-        run: uv run pytest -q
+      - name: Run tests (including a real transcription)
+        run: uv run pytest -q -rs
+        env:
+          RUN_E2E: "1"
       - name: CLI smoke test
         run: |
           uv run meetings --version
